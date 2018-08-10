@@ -193,6 +193,9 @@ def train(args, model, trainset, logger, optimizer, scheduler, N, device, desc, 
     batch_size = args.batch_size
     loader = simple_loader(*trainset, batch_size)
 
+    bins = np.logspace(-9, 4, 130)
+    bins = np.concatenate([[-1], bins])
+
     step = 0
     while True:
         if step > args.n_steps_max:
@@ -233,16 +236,13 @@ def train(args, model, trainset, logger, optimizer, scheduler, N, device, desc, 
                 x = deltas.clone()
                 x[x < 0] = 0
                 x = x / data['train'][1] ** 0.5
-                bins = np.logspace(-5, 4, 120)
-                bins = np.concatenate([[-1], bins])
                 h_pos, _ = np.histogram(x.detach().cpu().numpy(), bins, density=True)
             x = -deltas.clone()
             x[x < 0] = 0
-            bins = np.logspace(-9, 4, 80)
-            bins = np.concatenate([[-1], bins])
             h_neg, _ = np.histogram(x.detach().cpu().numpy(), bins, density=True)
 
             data['deltas'] = {
+                'bins': bins,
                 'positive': h_pos,
                 'negative': h_neg,
             }
