@@ -379,7 +379,7 @@ def main():
     objs = init(args)
 
     time_0 = time_logging.start()
-    train(*objs)
+    train(args, *objs)
     time_logging.end("run", time_0)
 
 
