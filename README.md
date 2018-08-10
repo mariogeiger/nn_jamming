@@ -28,3 +28,7 @@ print("{depth} layers of {width} units trained on {p} points".format(**run['desc
 dynamics = run['dynamics']  # list containing many measures during the training
 print("The finall loss is {}".format(dynamics[-1]['train'][1]))
 ```
+
+
+paper draft (edit link) : https://v2.overleaf.com/7459427742tpqzbsjzrrvx
+marginal stability calculus from Stefano (readonly) : https://www.sharelatex.com/read/xtyghwcstgvx
