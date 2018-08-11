@@ -158,7 +158,7 @@ def compute_hessian_evalues(model, data_x, data_y):
     output = model(mist_x)  # [p]
     model.preactivations = None  # free memory
     delta = model.kappa - output * mist_y  # [p]
-    assert (delta > 0).all()
+    assert (delta > 0).all(), delta
 
     term2 = (delta.detach() * delta).sum() / data_x.size(0)
     hes2 = hessian(term2, parameters)  # Delta_i yi da db Delta_i

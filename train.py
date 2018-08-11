@@ -138,7 +138,7 @@ def init(args):
 
     if desc in [run['desc'] for run in load_dir(args.log_dir)]:
         logger.info("{} skiped".format(repr(desc)))
-        return
+        return None
 
     logger.info(desc)
 
@@ -377,6 +377,9 @@ def train(args, model, trainset, logger, optimizer, scheduler, N, device, desc, 
 def main():
     args = parse()
     objs = init(args)
+
+    if objs is None:
+        return
 
     time_0 = time_logging.start()
     train(args, *objs)
