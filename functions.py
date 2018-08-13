@@ -226,7 +226,7 @@ def make_a_step(model, optimizer, data_x, data_y):
 
     mist = get_mistakes(model, data_x, data_y)
     if mist[0].size(0) == 0:
-        return
+        return 0
 
     deltas = get_deltas(model, *mist)
     loss = 0.5 * deltas.pow(2).sum() / data_x.size(0) - model.lamda * model.kappa
@@ -234,6 +234,8 @@ def make_a_step(model, optimizer, data_x, data_y):
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
+
+    return loss.item()
 
 
 def load_dir(directory):
