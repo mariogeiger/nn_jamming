@@ -160,8 +160,7 @@ def init(args):
     if args.normalize_weights:
         model.normalize_weights()
 
-    N = sum(layer.weight.numel() for layer in model.layers)
-    print("N={}".format(N))
+    print("N={}".format(model.N))
 
     scheduler = None
     if args.optimizer == "sgd":
@@ -174,10 +173,10 @@ def init(args):
         optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=0, verbose=True, threshold=-1, threshold_mode="rel", cooldown=args.rlrop_cooldown, min_lr=args.min_learning_rate)
 
-    return model, trainset, logger, optimizer, scheduler, N, device, desc, seed
+    return model, trainset, logger, optimizer, scheduler, device, desc, seed
 
 
-def train(args, model, trainset, logger, optimizer, scheduler, N, device, desc, seed):
+def train(args, model, trainset, logger, optimizer, scheduler, device, desc, seed):
     noise = args.noise
 
     measure_points = set(intlogspace(1, args.n_steps_max, 150, with_zero=True, with_end=True))
@@ -264,7 +263,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, N, device, desc, 
             logger.info("checkpoint")
 
             hessian = None
-            if 8 * N**2 < 1e9:
+            if 8 * model.N**2 < 1e9:
                 logger.info("compute the hessian")
                 hess1, hess2, e, e1, e2 = compute_hessian_evalues(model, *trainset)
 
@@ -328,7 +327,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, N, device, desc, 
         "desc": desc,
         "args": args,
         "seed": seed,
-        "N": N,
+        "N": model.N,
         "dynamics": dynamics,
         "checkpoints": checkpoints,
     }
@@ -336,7 +335,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, N, device, desc, 
     for model, name in zip([model, backup_best], ["last", "best"]):
 
         hessian = None
-        if 8 * N**2 < 1e9:
+        if 8 * model.N**2 < 1e9:
             logger.info("compute the hessian")
             hess1, hess2, e, e1, e2 = compute_hessian_evalues(model, *trainset)
 

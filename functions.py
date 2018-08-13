@@ -79,6 +79,7 @@ class Model(nn.Module):
         self.width = width
         self.layers = layers
         self.preactivations = None
+        self.N = sum(layer.weight.numel() for layer in self.layers)
 
     def forward(self, x):
         self.preactivations = []
