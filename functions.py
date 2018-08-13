@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import torch.utils.data
 import pickle
 import os
+import math
 import numpy as np
 import fcntl
 
@@ -207,11 +208,12 @@ def error_loss_grad(model, data_x, data_y):
     delta = delta[delta > 0]
 
     if loss.size(0) > 0:
-        grad_min_norm = gradient(loss[delta.argmin()] / data_x.size(0), model.parameters()).norm().item()
+        n = int(math.ceil(loss.size(0) / 10))
+        grad_avg_small_norm = sum([gradient(loss[i] / data_x.size(0), model.parameters()).norm().item() for i in delta.sort()[1][:n]]) / n
     else:
-        grad_min_norm = 0
+        grad_avg_small_norm = 0
 
-    return total_mistake, total_loss, grad_sum_norm, grad_min_norm
+    return total_mistake, total_loss, grad_sum_norm, grad_avg_small_norm
 
 
 def make_a_step(model, optimizer, data_x, data_y):
