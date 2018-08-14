@@ -155,7 +155,7 @@ def compute_hessian(model, data_x, data_y):
         return H, H
 
     delta = get_deltas(model, mist_x, mist_y)
-    assert (delta > 0).all(), delta
+    #assert (delta > 0).all(), delta
 
     H0 = data_x.new_zeros(Ntot, Ntot)  # da Delta_i db Delta_i
     for de in delta:
