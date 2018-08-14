@@ -142,53 +142,48 @@ def get_activities(model, data_x):
     return activities
 
 
-def compute_hessian_evalues(model, data_x, data_y):
+def compute_hessian(model, data_x, data_y):
     from hessian_pytorch import hessian
 
     model.eval()
+    p = len(data_x)
+    Ntot = sum(p.numel() for p in model.parameters())
 
     mist_x, mist_y = get_mistakes(model, data_x, data_y)
+    if len(mist_x) == 0:
+        H = data_x.new_zeros(Ntot, Ntot)
+        return H, H
 
-    parameters = [p for p in model.parameters() if p.requires_grad]
-    Ntot = sum(p.numel() for p in parameters)
-
-    if mist_x.size(0) == 0:
-        hes = data_x.new_zeros(Ntot, Ntot)
-        e = data_x.new_zeros(Ntot)
-        return hes, hes, e, e, e
-
-    output = model(mist_x)  # [p]
-    model.preactivations = None  # free memory
-    delta = model.kappa - output * mist_y  # [p]
+    delta = get_deltas(model, mist_x, mist_y)
     assert (delta > 0).all(), delta
 
-    term2 = (delta.detach() * delta).sum() / data_x.size(0)
-    hes2 = hessian(term2, parameters)  # Delta_i yi da db Delta_i
+    H0 = data_x.new_zeros(Ntot, Ntot)  # da Delta_i db Delta_i
+    for de in delta:
+        g = gradient(de, model.parameters()).detach()
+        H0.add_(g.view(-1, 1) * g.view(1, -1) / p)
 
-    hes1 = mist_x.new_zeros(Ntot, Ntot)  # da Delta_i db Delta_i
-    for j in range(output.size(0)):
-        row = gradient(delta[j], parameters).detach()
-        hes1[:] += row.view(-1, 1) * row.view(1, -1) / data_x.size(0)
+    Hp = hessian((delta.detach() * delta).sum() / p, model.parameters())  # Delta_i da db Delta_i
 
-    print("diagonalize hes1...")
-    e1, _ = torch.eig(hes1, eigenvectors=False)
-    e1 = e1[:, 0]
+    return H0, Hp
 
-    print("diagonalize hes2...")
-    e2, _ = torch.eig(hes2, eigenvectors=False)
-    e2 = e2[:, 0]
 
-    hes = hes1.add_(hes2)
-    del hes1
+def compute_hessian_evalues(model, data_x, data_y):
+    H0, Hp = compute_hessian(model, data_x, data_y)
 
-    print("diagonalize hes1 + hes2...")
-    e, _ = torch.eig(hes, eigenvectors=False)
-    e = e[:, 0]  # eigenvalues are real
+    e0, _ = torch.eig(H0, eigenvectors=False)
+    e0 = e0[:, 0]
 
-    hes1 = hes.sub_(hes2)
-    del hes
+    ep, _ = torch.eig(Hp, eigenvectors=False)
+    ep = ep[:, 0]
 
-    return hes1, hes2, e, e1, e2
+    H = H0.add_(Hp)
+
+    e, _ = torch.eig(H, eigenvectors=False)
+    e = e[:, 0]
+
+    H0 = H.sub_(Hp)
+
+    return H0, Hp, e, e0, ep
 
 
 def error_loss_grad(model, data_x, data_y):
