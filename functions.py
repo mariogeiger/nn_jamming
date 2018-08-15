@@ -170,17 +170,11 @@ def compute_hessian(model, data_x, data_y):
 def compute_hessian_evalues(model, data_x, data_y):
     H0, Hp = compute_hessian(model, data_x, data_y)
 
-    e0, _ = torch.eig(H0, eigenvectors=False)
-    e0 = e0[:, 0]
-
-    ep, _ = torch.eig(Hp, eigenvectors=False)
-    ep = ep[:, 0]
+    e0, _ = torch.symeig(H0)
+    ep, _ = torch.symeig(Hp)
 
     H = H0.add_(Hp)
-
-    e, _ = torch.eig(H, eigenvectors=False)
-    e = e[:, 0]
-
+    e, _ = torch.symeig(H)
     H0 = H.sub_(Hp)
 
     return H0, Hp, e, e0, ep
