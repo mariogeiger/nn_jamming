@@ -187,7 +187,7 @@ def error_loss_grad(model, data_x, data_y):
     model.preactivations = None  # free memory
 
     delta = model.kappa - output * data_y  # [p]
-    loss = 0.5 * (delta > 0).type_as(data_x) * delta.abs().pow(2).mean() - model.lamda * model.kappa
+    loss = 0.5 * ((delta > 0).type_as(data_x) * delta.abs().pow(2)).mean() - model.lamda * model.kappa
     grad_sum_norm = gradient(loss, model.parameters()).norm().item()
 
     return (delta > 0).long().sum().item(), loss.item(), grad_sum_norm
