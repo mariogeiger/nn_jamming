@@ -187,23 +187,10 @@ def error_loss_grad(model, data_x, data_y):
     model.preactivations = None  # free memory
 
     delta = model.kappa - output * data_y  # [p]
-    total_mistake = (delta > 0).long().sum().item()
+    loss = 0.5 * (delta > 0).type_as(data_x) * delta.abs().pow(2).mean() - model.lamda * model.kappa
+    grad_sum_norm = gradient(loss, model.parameters()).norm().item()
 
-    loss = 0.5 * (delta > 0).type_as(data_x) * delta.abs().pow(2) - model.lamda * model.kappa  # [p]
-    total_loss = loss.mean().item()
-
-    grad_sum_norm = gradient(loss.mean(), model.parameters()).norm().item()
-
-    loss = loss[delta > 0]
-    delta = delta[delta > 0]
-
-    if loss.size(0) > 0:
-        n = int(math.ceil(loss.size(0) / 10))
-        grad_avg_small_norm = sum([gradient(loss[i] / data_x.size(0), model.parameters()).norm().item() for i in delta.sort()[1][:n]]) / n
-    else:
-        grad_avg_small_norm = 0
-
-    return total_mistake, total_loss, grad_sum_norm, grad_avg_small_norm
+    return (delta > 0).long().sum().item(), loss.item(), grad_sum_norm
 
 
 def make_a_step(model, optimizer, data_x, data_y):

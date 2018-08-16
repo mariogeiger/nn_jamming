@@ -209,11 +209,12 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
 
             data['step'] = step
             data['train'] = error_loss_grad(model, *trainset)
-            logger.info("[{}] train={:d} ({:.1f}%), {:.2g}, |Grad| / avg_small(|Grad|)={:.2g}/{:.2g} = {:.2g}".format(
-                    step, data['train'][0], 100 * data['train'][0] / args.p,
+            logger.info("[{}] train={:d} ({:.1f}%), {:.2g}, |Grad|={:.2g}".format(
+                    step,
+                    data['train'][0], 
+                    100 * data['train'][0] / args.p,
                     data['train'][1],
-                    data['train'][2], data['train'][3],
-                    data['train'][2] / data['train'][3] if data['train'][3] > 0 else 0
+                    data['train'][2]
                 )
             )
 
