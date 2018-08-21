@@ -152,7 +152,7 @@ def init(args):
     trainset = (x, y)
     del x, y
 
-    model = Model(args.width, args.depth, args.dim, args.init, args.act, args.kappa, args.lamda)
+    model = Model(args.dim, args.width, args.depth, args.init, args.act, args.kappa, args.lamda)
     model.to(device)
 
     model.type(torch.float64)
@@ -211,7 +211,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
             data['train'] = error_loss_grad(model, *trainset)
             logger.info("[{}] train={:d} ({:.1f}%), {:.2g}, |Grad|={:.2g}".format(
                     step,
-                    data['train'][0], 
+                    data['train'][0],
                     100 * data['train'][0] / args.p,
                     data['train'][1],
                     data['train'][2]

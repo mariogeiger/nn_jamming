@@ -5,7 +5,6 @@ import torch.nn.functional as F
 import torch.utils.data
 import pickle
 import os
-import math
 import numpy as np
 import fcntl
 
@@ -43,7 +42,7 @@ class RandomBinaryDataset(torch.utils.data.Dataset):
 
 class Model(nn.Module):
 
-    def __init__(self, width, depth, dim, init, act, kappa=0.5, lamda=None):
+    def __init__(self, dim, width, depth, init="orth", act="relu", kappa=0.5, lamda=None):
         super().__init__()
 
         layers = nn.ModuleList()
@@ -75,8 +74,9 @@ class Model(nn.Module):
             self.lamda = 0
 
         self.act = act
-        self.depth = depth
+        self.dim = dim
         self.width = width
+        self.depth = depth
         self.layers = layers
         self.preactivations = None
         self.N = sum(layer.weight.numel() for layer in self.layers)
@@ -142,9 +142,24 @@ def get_activities(model, data_x):
     return activities
 
 
-def compute_hessian(model, data_x, data_y):
-    from hessian_pytorch import hessian
+def compute_h0(model, deltas):
+    '''
+    Compute extensive
+    '''
+    Ntot = sum(p.numel() for p in model.parameters())
+    H0 = deltas.new_zeros(Ntot, Ntot)  # da Delta_i db Delta_i
+    for delta in deltas:
+        g = gradient(delta, model.parameters()).detach()
+        H0.add_(g.view(-1, 1) * g.view(1, -1))
+    return H0
 
+
+def compute_hp(model, deltas):
+    from hessian_pytorch import hessian
+    return hessian((deltas.detach() * deltas).sum(), model.parameters())  # Delta_i da db Delta_i
+
+
+def compute_hessian(model, data_x, data_y):
     model.eval()
     p = len(data_x)
     Ntot = sum(p.numel() for p in model.parameters())
@@ -154,17 +169,8 @@ def compute_hessian(model, data_x, data_y):
         H = data_x.new_zeros(Ntot, Ntot)
         return H, H
 
-    delta = get_deltas(model, mist_x, mist_y)
-    #assert (delta > 0).all(), delta
-
-    H0 = data_x.new_zeros(Ntot, Ntot)  # da Delta_i db Delta_i
-    for de in delta:
-        g = gradient(de, model.parameters()).detach()
-        H0.add_(g.view(-1, 1) * g.view(1, -1) / p)
-
-    Hp = hessian((delta.detach() * delta).sum() / p, model.parameters())  # Delta_i da db Delta_i
-
-    return H0, Hp
+    deltas = get_deltas(model, mist_x, mist_y)
+    return compute_h0(model, deltas) / p, compute_hp(model, deltas) / p
 
 
 def compute_hessian_evalues(model, data_x, data_y):
