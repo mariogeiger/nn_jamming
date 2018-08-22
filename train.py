@@ -235,7 +235,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
             logger.info("checkpoint")
 
             hessian = None
-            if 8 * model.N**2 < 1e9:
+            if 8 * model.N**2 < 2e9:
                 logger.info("compute the hessian")
                 hess1, hess2, e, e1, e2 = compute_hessian_evalues(model, *trainset)
 
@@ -305,7 +305,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
     for model, name in zip([model, backup_best], ["last", "best"]):
 
         hessian = None
-        if 8 * model.N**2 < 1e9:
+        if 8 * model.N**2 < 2e9:
             logger.info("compute the hessian")
             hess1, hess2, e, e1, e2 = compute_hessian_evalues(model, *trainset)
 
