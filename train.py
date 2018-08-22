@@ -23,20 +23,14 @@ def parse():
     parser.add_argument("--width", type=int, required=True)
     parser.add_argument("--depth", type=int, required=True)
     parser.add_argument("--rep", type=int, default=0)
-    parser.add_argument("--act", choices={"relu", "tanh"}, default="relu")
 
     parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "adam_rlrop"}, default="adam0")
     parser.add_argument("--momentum", type=float, default=0.9)
-    parser.add_argument("--n_steps_min", type=int)
     parser.add_argument("--n_steps_max", type=int, default=int(1e7))
-    parser.add_argument("--stop_grad", type=float, default=1e-10)
-    parser.add_argument("--stop_loss", type=float, default=1e-20)
     parser.add_argument("--save_hessian", action="store_true")
     parser.add_argument("--checkpoints", type=int, nargs='+', default=[])
-    parser.add_argument("--init", choices={"pytorch", "orth"}, default="orth")
     parser.add_argument("--noise", type=float, default=0)
 
-    parser.add_argument("--normalize_weights", action="store_true")
     parser.add_argument("--kappa", type=float, default=0.5)
     parser.add_argument("--lamda", type=float)
 
@@ -55,8 +49,6 @@ def parse():
     if args.optimizer == "adam_rlrop":
         if args.learning_rate is None:
             args.learning_rate = 1e-3
-        if args.n_steps_min is None:
-            args.n_steps_min = 1e6
         if args.min_learning_rate is None:
             args.min_learning_rate = 1e-7
         if args.batch_size is None:
@@ -72,8 +64,6 @@ def parse():
             args.lr_decay_factor = 10
         if args.min_learning_rate is None:
             args.min_learning_rate = 1e-7
-        if args.n_steps_min is None:
-            args.n_steps_min = 1e6
         if args.batch_size is None:
             args.batch_size = args.p
     if args.optimizer == "adam":
@@ -83,8 +73,6 @@ def parse():
             args.n_steps_lr_decay = 1e5
         if args.lr_decay_factor is None:
             args.lr_decay_factor = 2
-        if args.n_steps_min is None:
-            args.n_steps_min = 2e5
         if args.min_learning_rate is None:
             args.min_learning_rate = 1e-6
         if args.batch_size is None:
@@ -96,8 +84,6 @@ def parse():
             args.n_steps_lr_decay = 1e5
         if args.lr_decay_factor is None:
             args.lr_decay_factor = 2
-        if args.n_steps_min is None:
-            args.n_steps_min = 2e5
         if args.min_learning_rate is None:
             args.min_learning_rate = 1e-3
         if args.batch_size is None:
@@ -123,7 +109,6 @@ def init(args):
         "kappa": args.kappa,
         "lamda": args.lamda,
         "rep": args.rep,
-        "act": args.act,
     }
 
     logger = logging.getLogger("default")
@@ -143,22 +128,12 @@ def init(args):
     logger.info(desc)
 
     seed = torch.randint(10000, (), dtype=torch.long).item()
-    trainset = RandomBinaryDataset(args.p, args.dim, seed=seed)
-    x = torch.stack([x for x, y in trainset]).to(device)  # [p, dim]
-    y = torch.stack([y for x, y in trainset]).to(device).view(-1)  # [p]
+    trainset = get_dataset(args.dataset, args.p, args.dim, seed, device)
 
-    x = x.type(torch.float64)
-    y = y.type(torch.float64)
-    trainset = (x, y)
-    del x, y
-
-    model = Model(args.dim, args.width, args.depth, args.init, args.act, args.kappa, args.lamda)
+    model = Model(args.dim, args.width, args.depth, args.kappa, args.lamda)
     model.to(device)
 
     model.type(torch.float64)
-
-    if args.normalize_weights:
-        model.normalize_weights()
 
     print("N={}".format(model.N))
 
@@ -201,7 +176,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
             break
 
         if step % 100 == 0:
-            print("{:.2f}% {:.2f}%      ".format(step / args.n_steps_min * 100, step / args.n_steps_max * 100), end="\r")
+            print("{:.2f}%      ".format(step / args.n_steps_max * 100), end="\r")
 
         if step in measure_points or step % 1000 == 0:
             data = {}
@@ -252,12 +227,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
 
             time_1 = time_logging.end("error and loss", time_1)
 
-            if data['train'][0] == 0.0 and data['train'][1] < args.stop_loss:
-                logger.info("loss smaller than stop_loss !")
-                break
-
-            if data['train'][2] < args.stop_grad and step > args.n_steps_min:
-                logger.info("gradient small !")
+            if data['train'][0] == 0:  # with the hinge, no errors => finished
                 break
 
         if step in args.checkpoints:
@@ -311,8 +281,6 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
         time_1 = time_logging.end("load data", time_1)
 
         make_a_step(model, optimizer, data, target)
-        if args.normalize_weights:
-            model.normalize_weights()
         if noise > 0:
             for p in model.parameters():
                 with torch.no_grad():

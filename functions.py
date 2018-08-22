@@ -23,26 +23,82 @@ class FSLocker:
         self.f.close()
 
 
-class RandomBinaryDataset(torch.utils.data.Dataset):
-    def __init__(self, p, d, seed=None):
-        if seed is not None:
-            torch.manual_seed(seed)
+def get_dataset(dataset, p, dim, seed, device):
+    torch.manual_seed(seed)
 
-        points = torch.randn(p, d)
-        self.points = d ** 0.5 * points / torch.sum(points ** 2, dim=1, keepdim=True) ** 0.5
+    if dataset == "random":
+        x = torch.randn(p, dim, dtype=torch.float64, device=device)
 
-        self.labels = torch.randint(2, size=(p, 1)) * 2 - 1
+    if dataset == "cifar":
+        import torchvision
+        from itertools import chain
 
-    def __getitem__(self, index):
-        return self.points[index], self.labels[index]
+        proj = torch.empty(dim, 3 * 32 ** 2, dtype=torch.float64)
+        orthogonal_(proj)
 
-    def __len__(self):
-        return len(self.points)
+        transform = torchvision.transforms.Compose([
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2470322, 0.243485, 0.261587849]),
+            lambda x: proj @ x.view(-1).type(torch.float64)
+        ])
+
+        def target_transform(y):
+            return torch.tensor(0 if y in [0, 1, 8, 9] else 1)
+
+        trainset = torchvision.datasets.CIFAR10('../cifar10', train=True, download=True, transform=transform, target_transform=target_transform)
+        testset = torchvision.datasets.CIFAR10('../cifar10', train=False, transform=transform, target_transform=target_transform)
+
+        dataset = []
+        for i, xy in enumerate(trainset):
+            dataset.append(xy)
+            if i % 100 == 0: print("cifar10 {:.1f}%".format(100 * i / (len(trainset) + len(testset))), end="        \r")
+        for i, xy in enumerate(testset):
+            dataset.append(xy)
+            if i % 100 == 0: print("cifar10 {:.1f}%".format(100 * (len(trainset) + i) / (len(trainset) + len(testset))), end="        \r")
+
+        classes = [[x for x, y in dataset if y == i] for i in range(2)]
+        for xs in classes:
+            xs = [xs[i] for i in torch.randperm(len(xs))]
+
+        xs = list(chain(*zip(*classes)))
+        assert p <= len(xs)
+
+        x = torch.stack(xs)
+        x = x[:p].to(device)
+
+    x = x - x.mean(0)
+    x = dim ** 0.5 * x / x.norm(dim=1, keepdim=True)
+    y = (torch.arange(p, dtype=torch.float64, device=device) % 2) * 2 - 1
+
+    return x, y
+
+
+def orthogonal_(tensor, gain=1):
+    if tensor.ndimension() < 2:
+        raise ValueError("Only tensors with 2 or more dimensions are supported")
+
+    rows = tensor.size(0)
+    cols = tensor[0].numel()
+    flattened = tensor.new_empty(rows, cols).normal_(0, 1)
+
+    for i in range(0, rows, cols):
+        # Compute the qr factorization
+        q, r = torch.qr(flattened[i:i + cols].t())
+        # Make Q uniform according to https://arxiv.org/pdf/math-ph/0609050.pdf
+        q *= torch.diag(r, 0).sign()
+        q.t_()
+
+        with torch.no_grad():
+            tensor[i:i + cols].view_as(q).copy_(q)
+
+    with torch.no_grad():
+        tensor.mul_(gain)
+    return tensor
 
 
 class Model(nn.Module):
 
-    def __init__(self, dim, width, depth, init="orth", act="relu", kappa=0.5, lamda=None):
+    def __init__(self, dim, width, depth, kappa=0.5, lamda=None):
         super().__init__()
 
         layers = nn.ModuleList()
@@ -51,18 +107,15 @@ class Model(nn.Module):
 
         for _ in range(depth):
             lin = nn.Linear(f, width, bias=True)
-            if init == "pytorch":
-                pass
-            if init == "orth":
-                nn.init.orthogonal_(lin.weight)
-                nn.init.zeros_(lin.bias)
+            orthogonal_(lin.weight)
+            nn.init.zeros_(lin.bias)
 
             layers += [lin]
             f = width
 
         lin = nn.Linear(f, 1, bias=True)
-        nn.init.normal_(lin.weight, std=1e-2 / f ** 0.5)
-        nn.init.normal_(lin.bias, std=1e-2)
+        orthogonal_(lin.weight, gain=kappa)
+        nn.init.zeros_(lin.bias)
 
         layers += [lin]
 
@@ -73,7 +126,6 @@ class Model(nn.Module):
             self.kappa = kappa
             self.lamda = 0
 
-        self.act = act
         self.dim = dim
         self.width = width
         self.depth = depth
@@ -87,20 +139,9 @@ class Model(nn.Module):
         for layer in self.layers[:-1]:
             x = layer(x)
             self.preactivations.append(x)
-
-            if self.act == "relu":
-                x = F.relu(x)
-            if self.act == "tanh":
-                x = torch.tanh(x)
+            x = F.relu(x)
 
         return self.layers[-1](x).view(-1)
-
-    def normalize_weights(self):
-        for layer in self.layers:
-            weight = layer.weight  # [out, in]
-            with torch.no_grad():
-                norm = weight.norm(dim=1, keepdim=True)  # [out, 1]
-                weight.div_(norm)
 
 
 def gradient(x, params):
