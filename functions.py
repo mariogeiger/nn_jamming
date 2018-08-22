@@ -70,7 +70,7 @@ def get_dataset(dataset, p, dim, seed, device):
         classes = [[xs[i] for i in torch.randperm(len(xs))] for xs in classes]
 
         xs = list(chain(*zip(*classes)))
-        assert p <= len(xs)
+        assert p <= len(xs), "p={} and we have {} images".format(p, len(xs))
 
         x = torch.stack(xs)
         x = x[:p].to(device)
