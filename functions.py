@@ -29,18 +29,28 @@ def get_dataset(dataset, p, dim, seed, device):
     if dataset == "random":
         x = torch.randn(p, dim, dtype=torch.float64, device=device)
 
-    if dataset == "cifar":
+    if dataset.startswith("cifar"):
         import torchvision
         from itertools import chain
 
-        proj = torch.empty(dim, 3 * 32 ** 2, dtype=torch.float64)
-        orthogonal_(proj)
+        if dataset == "cifar8x8":
+            assert dim == 3 * 8 * 8
+            transform = torchvision.transforms.Compose([
+                torchvision.transforms.Resize(8),
+                torchvision.transforms.ToTensor(),
+                lambda x: x.view(-1).type(torch.float64)
+            ])
+        elif dataset == "cifarOP":
+            proj = torch.empty(dim, 3 * 32 ** 2, dtype=torch.float64)
+            orthogonal_(proj)
 
-        transform = torchvision.transforms.Compose([
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2470322, 0.243485, 0.261587849]),
-            lambda x: proj @ x.view(-1).type(torch.float64)
-        ])
+            transform = torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor(),
+                torchvision.transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2470322, 0.243485, 0.261587849]),
+                lambda x: proj @ x.view(-1).type(torch.float64)
+            ])
+        else:
+            raise ValueError("unknown dataset")
 
         def target_transform(y):
             return torch.tensor(0 if y in [0, 1, 8, 9] else 1)
@@ -57,8 +67,7 @@ def get_dataset(dataset, p, dim, seed, device):
             if i % 100 == 0: print("cifar10 {:.1f}%".format(100 * (len(trainset) + i) / (len(trainset) + len(testset))), end="        \r")
 
         classes = [[x for x, y in dataset if y == i] for i in range(2)]
-        for xs in classes:
-            xs = [xs[i] for i in torch.randperm(len(xs))]
+        classes = [[xs[i] for i in torch.randperm(len(xs))] for xs in classes]
 
         xs = list(chain(*zip(*classes)))
         assert p <= len(xs)
