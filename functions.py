@@ -153,12 +153,11 @@ class Model(nn.Module):
         return self.layers[-1](x).view(-1)
 
 
-def gradient(x, params):
-    params = list(params)
-    row = torch.autograd.grad(x, params, retain_graph=True, allow_unused=True, create_graph=True)
-    row = [x if x is not None else torch.zeros_like(y) for x, y in zip(row, params)]
-    row = torch.cat([x.contiguous().view(-1) for x in row])
-    return row
+def gradient(output, inputs, retain_graph=True, create_graph=True):
+    inputs = list(inputs)
+    grads = torch.autograd.grad(output, inputs, allow_unused=True, retain_graph=retain_graph, create_graph=create_graph)
+    grads = [x if x is not None else torch.zeros_like(y) for x, y in zip(grads, inputs)]
+    return torch.cat([x.contiguous().view(-1) for x in grads])
 
 
 def get_deltas(model, data_x, data_y):
