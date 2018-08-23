@@ -34,7 +34,14 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
         import torchvision
         from itertools import chain
 
-        if dataset == "cifar8x8":
+        if dataset == "cifar7x7":
+            assert dim == 3 * 7 * 7
+            transform = torchvision.transforms.Compose([
+                torchvision.transforms.Resize(7),
+                torchvision.transforms.ToTensor(),
+                lambda x: x.view(-1).type(torch.float64)
+            ])
+        elif dataset == "cifar8x8":
             assert dim == 3 * 8 * 8
             transform = torchvision.transforms.Compose([
                 torchvision.transforms.Resize(8),
@@ -54,7 +61,8 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
             raise ValueError("unknown dataset")
 
         def target_transform(y):
-            return torch.tensor(0 if y in [0, 1, 8, 9] else 1)
+            # return torch.tensor(0 if y in [0, 1, 8, 9] else 1)
+            return torch.tensor(0 if y in [0, 1, 2, 3, 4] else 1)
 
         trainset = torchvision.datasets.CIFAR10('../cifar10', train=True, download=True, transform=transform, target_transform=target_transform)
         testset = torchvision.datasets.CIFAR10('../cifar10', train=False, transform=transform, target_transform=target_transform)
