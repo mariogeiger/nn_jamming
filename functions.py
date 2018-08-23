@@ -23,8 +23,9 @@ class FSLocker:
         self.f.close()
 
 
-def get_dataset(dataset, p, dim, seed, device):
-    torch.manual_seed(seed)
+def get_dataset(dataset, p, dim, seed=None, device=None):
+    if seed is not None:
+        torch.manual_seed(seed)
 
     if dataset == "random":
         x = torch.randn(p, dim, dtype=torch.float64, device=device)
@@ -153,7 +154,7 @@ class Model(nn.Module):
         return self.layers[-1](x).view(-1)
 
 
-def gradient(output, inputs, retain_graph=True, create_graph=True):
+def gradient(output, inputs, retain_graph=False, create_graph=False):
     inputs = list(inputs)
     grads = torch.autograd.grad(output, inputs, allow_unused=True, retain_graph=retain_graph, create_graph=create_graph)
     grads = [x if x is not None else torch.zeros_like(y) for x, y in zip(grads, inputs)]
@@ -193,17 +194,20 @@ def get_activities(model, data_x):
 
 def compute_h0(model, deltas):
     '''
-    Compute extensive
+    Compute extensive H0
     '''
     Ntot = sum(p.numel() for p in model.parameters())
     H0 = deltas.new_zeros(Ntot, Ntot)  # da Delta_i db Delta_i
     for delta in deltas:
-        g = gradient(delta, model.parameters()).detach()
+        g = gradient(delta, model.parameters(), retain_graph=True)
         H0.add_(g.view(-1, 1) * g.view(1, -1))
     return H0
 
 
 def compute_hp(model, deltas):
+    '''
+    Compute extensive Hp
+    '''
     from hessian_pytorch import hessian
     return hessian((deltas.detach() * deltas).sum(), model.parameters())  # Delta_i da db Delta_i
 
