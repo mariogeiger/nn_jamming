@@ -311,12 +311,14 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
 
             hessian = {
                 "hess_eval": e.cpu(),
-                "hess1_eval": e1.cpu(),
-                "hess2_eval": e2.cpu(),
+                "hess1_eval": e1.cpu(),  # H0
+                "hess2_eval": e2.cpu(),  # Hp
             }
             if args.save_hessian:
-                hessian["hess1"] = hess1.cpu()
-                hessian["hess2"] = hess2.cpu()
+                hessian["hess1"] = hess1.cpu()  # H0
+                hessian["hess2"] = hess2.cpu()  # Hp
+
+            del hess1, hess2, e, e1, e2
             time_1 = time_logging.end("hessian", time_1)
 
         with torch.no_grad():
