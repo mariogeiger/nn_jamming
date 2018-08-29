@@ -162,7 +162,7 @@ class Model(nn.Module):
         return self.layers[-1](x).view(-1)
 
 
-def gradient(output, inputs, retain_graph=False, create_graph=False):
+def gradient(output, inputs, retain_graph=None, create_graph=False):
     inputs = list(inputs)
     grads = torch.autograd.grad(output, inputs, allow_unused=True, retain_graph=retain_graph, create_graph=create_graph)
     grads = [x if x is not None else torch.zeros_like(y) for x, y in zip(grads, inputs)]
