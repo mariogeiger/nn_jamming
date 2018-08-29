@@ -185,7 +185,8 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
 
             data['step'] = step
             data['train'] = error_loss_grad(model, *trainset)
-            logger.info("[{}] train={:d} ({:.1f}%), {:.2g}, |Grad|={:.2g}".format(
+            logger.info("({}) [{}] train={:d} ({:.1f}%), {:.2g}, |Grad|={:.2g}".format(
+                    desc['p'],
                     step,
                     data['train'][0],
                     100 * data['train'][0] / args.p,
@@ -232,11 +233,11 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
                 break
 
         if step in args.checkpoints:
-            logger.info("checkpoint")
+            logger.info("({}) checkpoint".format(desc['p']))
 
             hessian = None
             if 8 * model.N**2 < 2e9:
-                logger.info("compute the hessian")
+                logger.info("({}) compute the hessian".format(desc['p']))
                 hess1, hess2, e, e1, e2 = compute_hessian_evalues(model, *trainset)
 
                 hessian = {
@@ -266,17 +267,17 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
             for pg in optimizer.param_groups:
                 if isinstance(optimizer, FIRE):
                     pg['dt_max'] = max(args.min_learning_rate, pg['dt_max'] / args.lr_decay_factor)
-                    logger.info("dt_max set to {}".format(pg['dt_max']))
+                    logger.info("({}) dt_max set to {}".format(desc['p'], pg['dt_max']))
                 else:
                     pg['lr'] = max(args.min_learning_rate, pg['lr'] / args.lr_decay_factor)
-                    logger.info("learning rate set to {}".format(pg['lr']))
+                    logger.info("({}) learning rate set to {}".format(desc['p'], pg['lr']))
 
             noise = noise / args.lr_decay_factor
 
         if args.n_steps_bs_grow and step > 0 and step % args.n_steps_bs_grow == 0:
             batch_size = min(args.p, int(batch_size * args.bs_grow_factor))
             loader = simple_loader(*trainset, batch_size)
-            logger.info("batch size set to {}".format(batch_size))
+            logger.info("({}) batch size set to {}".format(desc['p'], batch_size))
 
         data, target = next(loader)
         time_1 = time_logging.end("load data", time_1)
