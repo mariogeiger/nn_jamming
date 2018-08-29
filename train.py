@@ -162,9 +162,6 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
 
     time_1 = time_logging.start()
 
-    backup_best = None
-    best_error_loss = (args.p, 1)
-
     batch_size = args.batch_size
     loader = simple_loader(*trainset, batch_size)
 
@@ -222,10 +219,6 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
                 'positive': h_pos,
                 'negative': h_neg,
             }
-
-            if data['train'] < best_error_loss:
-                best_error_loss = data['train']
-                backup_best = copy.deepcopy(model)
 
             time_1 = time_logging.end("error and loss", time_1)
 
@@ -303,10 +296,26 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
         "checkpoints": checkpoints,
     }
 
-    for model, name in zip([model, backup_best], ["last", "best"]):
+    for i in count():
+        path_script = os.path.join(args.log_dir, "script_{}.py".format(i))
+        if not os.path.isfile(path_script):
+            copyfile(__file__, path_script)
+            break
+    run["script"] = path_script
 
-        hessian = None
-        if 8 * model.N**2 < 2e9:
+    with torch.no_grad():
+        deltas = get_deltas(model, *trainset)
+    error_loss = error_loss_grad(model, *trainset)
+
+    run["last"] = {
+        "train": error_loss,
+        "state": model.cpu().state_dict(),
+        "deltas": deltas.cpu(),
+        "hessian": None,
+    }
+
+    if 8 * model.N**2 < 2e9:
+        try:
             logger.info("compute the hessian")
             hess1, hess2, e, e1, e2 = compute_hessian_evalues(model, *trainset)
 
@@ -319,26 +328,12 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
                 hessian["hess1"] = hess1.cpu()  # H0
                 hessian["hess2"] = hess2.cpu()  # Hp
 
+            run["last"]["hessian"] = hessian
+
             del hess1, hess2, e, e1, e2
             time_1 = time_logging.end("hessian", time_1)
-
-        with torch.no_grad():
-            deltas = get_deltas(model, *trainset)
-        error_loss = error_loss_grad(model, *trainset)
-
-        run[name] = {
-            "train": error_loss,
-            "state": model.cpu().state_dict(),
-            "deltas": deltas.cpu(),
-            "hessian": hessian,
-        }
-
-    for i in count():
-        path_script = os.path.join(args.log_dir, "script_{}.py".format(i))
-        if not os.path.isfile(path_script):
-            copyfile(__file__, path_script)
-            break
-    run["script"] = path_script
+        except RuntimeError:
+            pass
 
     dump_run(args.log_dir, run)
 
