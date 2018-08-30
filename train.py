@@ -316,7 +316,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
 
     if 8 * model.N**2 < 2e9:
         try:
-            logger.info("compute the hessian")
+            logger.info("({}) compute the hessian".format(desc['p']))
             hess1, hess2, e, e1, e2 = compute_hessian_evalues(model, *trainset)
 
             hessian = {
