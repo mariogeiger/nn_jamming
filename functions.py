@@ -344,3 +344,10 @@ def intlogspace(begin, end, num, with_zero=False, with_end=True):
             n += 1
         else:
             return output
+
+
+def to_bool(arg):
+    if arg == "True": return True
+    if arg == "False": return False
+    raise ValueError()
+

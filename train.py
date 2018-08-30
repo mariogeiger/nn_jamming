@@ -28,7 +28,8 @@ def parse():
     parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "adam_rlrop"}, default="adam0")
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--n_steps_max", type=int, default=int(1e7))
-    parser.add_argument("--save_hessian", action="store_true")
+    parser.add_argument("--compute_hessian", type=to_bool, default="True")
+    parser.add_argument("--save_hessian", type=to_bool, default="False")
     parser.add_argument("--checkpoints", type=int, nargs='+', default=[])
     parser.add_argument("--noise", type=float, default=0)
 
@@ -229,7 +230,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
             logger.info("({}) checkpoint".format(desc['p']))
 
             hessian = None
-            if 8 * model.N**2 < 2e9:
+            if 8 * model.N**2 < 2e9 and args.compute_hessian:
                 logger.info("({}) compute the hessian".format(desc['p']))
                 hess1, hess2, e, e1, e2 = compute_hessian_evalues(model, *trainset)
 
@@ -314,7 +315,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
         "hessian": None,
     }
 
-    if 8 * model.N**2 < 2e9:
+    if 8 * model.N**2 < 2e9 and args.compute_hessian:
         try:
             logger.info("({}) compute the hessian".format(desc['p']))
             hess1, hess2, e, e1, e2 = compute_hessian_evalues(model, *trainset)
