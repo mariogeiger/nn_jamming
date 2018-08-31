@@ -30,6 +30,42 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
     if dataset == "random":
         x = torch.randn(p, dim, dtype=torch.float64, device=device)
 
+    if dataset.startswith("mnist"):
+        import torchvision
+        from itertools import chain
+
+        if dataset == "mnist12x12":
+            assert dim == 12 * 12
+            transform = torchvision.transforms.Compose([
+                torchvision.transforms.Resize(12),
+                torchvision.transforms.ToTensor(),
+                lambda x: x.view(-1).type(torch.float64)
+            ])
+        else:
+            raise ValueError("unknown dataset")
+
+        target_transform = lambda y: torch.tensor(y % 2)
+
+        trainset = torchvision.datasets.MNIST('../mnist', train=True, download=True, transform=transform, target_transform=target_transform)
+        testset = torchvision.datasets.MNIST('../mnist', train=False, transform=transform, target_transform=target_transform)
+
+        dataset = []
+        for i, xy in enumerate(trainset):
+            dataset.append(xy)
+            if i % 100 == 0: print("mnist {:.1f}%".format(100 * i / (len(trainset) + len(testset))), end="        \r")
+        for i, xy in enumerate(testset):
+            dataset.append(xy)
+            if i % 100 == 0: print("mnist {:.1f}%".format(100 * (len(trainset) + i) / (len(trainset) + len(testset))), end="        \r")
+
+        classes = [[x for x, y in dataset if y == i] for i in range(2)]
+        classes = [[xs[i] for i in torch.randperm(len(xs))] for xs in classes]
+
+        xs = list(chain(*zip(*classes)))
+        assert p <= len(xs), "p={} and we have {} images".format(p, len(xs))
+
+        x = torch.stack(xs)
+        x = x[:p].to(device)
+
     if dataset.startswith("cifar"):
         import torchvision
         from itertools import chain
@@ -60,9 +96,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
         else:
             raise ValueError("unknown dataset")
 
-        def target_transform(y):
-            # return torch.tensor(0 if y in [0, 1, 8, 9] else 1)
-            return torch.tensor(0 if y in [0, 1, 2, 3, 4] else 1)
+        target_transform = lambda y: torch.tensor(0 if y in [0, 1, 2, 3, 4] else 1)
 
         trainset = torchvision.datasets.CIFAR10('../cifar10', train=True, download=True, transform=transform, target_transform=target_transform)
         testset = torchvision.datasets.CIFAR10('../cifar10', train=False, transform=transform, target_transform=target_transform)

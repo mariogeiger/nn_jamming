@@ -18,7 +18,7 @@ def parse():
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--log_dir", type=str, required=True)
 
-    parser.add_argument("--dataset", choices={"random", "cifarOP", "cifar8x8", "cifar7x7"}, default="random")
+    parser.add_argument("--dataset", choices={"random", "cifarOP", "cifar8x8", "cifar7x7", "mnist12x12"}, default="random")
     parser.add_argument("--dim", type=int, required=True)
     parser.add_argument("--p", type=int, required=True)
     parser.add_argument("--width", type=int, required=True)
