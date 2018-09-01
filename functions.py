@@ -28,9 +28,9 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
         torch.manual_seed(seed)
 
     if dataset == "random":
-        x = torch.randn(p, dim, dtype=torch.float64, device=device)
+        x = torch.randn(p, dim, dtype=torch.float64).to(device)
 
-    if dataset.startswith("mnist"):
+    elif dataset.startswith("mnist"):
         import torchvision
         from itertools import chain
 
@@ -66,7 +66,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
         x = torch.stack(xs)
         x = x[:p].to(device)
 
-    if dataset.startswith("cifar"):
+    elif dataset.startswith("cifar"):
         import torchvision
         from itertools import chain
 
