@@ -1,7 +1,7 @@
+# pylint: disable=W0221, C, R, W1202, E1101, E1102, W0401, W0614
 from functions import *
 import subprocess
 import argparse
-import math
 
 
 def main():
@@ -39,6 +39,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
