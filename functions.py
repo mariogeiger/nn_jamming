@@ -42,6 +42,14 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
                 torchvision.transforms.ToTensor(),
                 lambda x: x.view(-1).type(torch.float64)
             ])
+        elif dataset == "mnist_pca":
+            m, v, e = torch.load('../mnist/pca.pkl')
+            assert dim <= (e > 0).long().sum().item()
+            transform = torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor(),
+                lambda x: x.view(-1).type(torch.float64),
+                lambda x: (x - m) @ v[:, :dim] / e[:dim] ** 0.5,
+            ])
         else:
             raise ValueError("unknown dataset")
 
@@ -95,6 +103,14 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
             transform = torchvision.transforms.Compose([
                 torchvision.transforms.ToTensor(),
                 lambda x: proj @ x.view(-1).type(torch.float64)
+            ])
+        elif dataset == "cifar_pca":
+            m, v, e = torch.load('../cifar10/pca.pkl')
+            assert dim <= (e > 0).long().sum().item()
+            transform = torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor(),
+                lambda x: x.view(-1).type(torch.float64),
+                lambda x: (x - m) @ v[:, :dim] / e[:dim] ** 0.5,
             ])
         else:
             raise ValueError("unknown dataset")
