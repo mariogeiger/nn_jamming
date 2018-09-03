@@ -219,7 +219,10 @@ class Model(nn.Module):
 
 
 def gradient(output, inputs, retain_graph=None, create_graph=False):
-    inputs = list(inputs)
+    if torch.is_tensor(inputs):
+        inputs = [inputs]
+    else:
+        inputs = list(inputs)
     grads = torch.autograd.grad(output, inputs, allow_unused=True, retain_graph=retain_graph, create_graph=create_graph)
     grads = [x if x is not None else torch.zeros_like(y) for x, y in zip(grads, inputs)]
     return torch.cat([x.contiguous().view(-1) for x in grads])
