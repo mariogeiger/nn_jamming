@@ -34,10 +34,11 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
         import torchvision
         from itertools import chain
 
-        if dataset == "mnist12x12":
-            assert dim == 12 * 12
+        if dataset == "mnist_scale":
+            w = int(dim ** 0.5)
+            assert dim == w * w
             transform = torchvision.transforms.Compose([
-                torchvision.transforms.Resize(12),
+                torchvision.transforms.Resize(w),
                 torchvision.transforms.ToTensor(),
                 lambda x: x.view(-1).type(torch.float64)
             ])
@@ -70,27 +71,29 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
         import torchvision
         from itertools import chain
 
-        if dataset == "cifar7x7":
-            assert dim == 3 * 7 * 7
+        if dataset == "cifar_scale":
+            w = int((dim / 3) ** 0.5)
+            assert dim == 3 * w * w
             transform = torchvision.transforms.Compose([
-                torchvision.transforms.Resize(7),
+                torchvision.transforms.Resize(w),
                 torchvision.transforms.ToTensor(),
                 lambda x: x.view(-1).type(torch.float64)
             ])
-        elif dataset == "cifar8x8":
-            assert dim == 3 * 8 * 8
+        elif dataset == "cifar_scale_gray":
+            w = int(dim ** 0.5)
+            assert dim == w * w
             transform = torchvision.transforms.Compose([
-                torchvision.transforms.Resize(8),
+                torchvision.transforms.Resize(w),
+                torchvision.transforms.Grayscale(),
                 torchvision.transforms.ToTensor(),
                 lambda x: x.view(-1).type(torch.float64)
             ])
-        elif dataset == "cifarOP":
+        elif dataset == "cifar_orth_proj":
             proj = torch.empty(dim, 3 * 32 ** 2, dtype=torch.float64)
             orthogonal_(proj)
 
             transform = torchvision.transforms.Compose([
                 torchvision.transforms.ToTensor(),
-                torchvision.transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2470322, 0.243485, 0.261587849]),
                 lambda x: proj @ x.view(-1).type(torch.float64)
             ])
         else:
@@ -117,6 +120,9 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
 
         x = torch.stack(xs)
         x = x[:p].to(device)
+
+    else:
+        raise ValueError("unknown dataset")
 
     x = x - x.mean(0)
     x = dim ** 0.5 * x / x.norm(dim=1, keepdim=True)
