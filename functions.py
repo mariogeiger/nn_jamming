@@ -74,8 +74,8 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
         assert p <= len(xs), "p={} and we have {} images".format(p, len(xs))
 
         x = torch.stack(xs)
-        x = x[:p].to(device)
         xg = x[p:].to(device)
+        x = x[:p].to(device)
 
     elif dataset.startswith("cifar"):
         import torchvision
@@ -137,8 +137,8 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
         assert p <= len(xs), "p={} and we have {} images".format(p, len(xs))
 
         x = torch.stack(xs)
-        x = x[:p].to(device)
         xg = x[p:].to(device)
+        x = x[:p].to(device)
 
     else:
         raise ValueError("unknown dataset")
