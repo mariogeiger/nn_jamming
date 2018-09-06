@@ -310,7 +310,7 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
 
     run["last"] = {
         "train": error_loss,
-        "state": model.cpu().state_dict(),
+        "state": None,
         "deltas": deltas.cpu(),
         "hessian": None,
     }
@@ -335,6 +335,8 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
             time_1 = time_logging.end("hessian", time_1)
         except RuntimeError:
             pass
+
+    run["last"]["state"] = model.cpu().state_dict()
 
     dump_run(args.log_dir, run)
 
