@@ -29,6 +29,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
 
     if dataset == "random":
         x = torch.randn(p, dim, dtype=torch.float64).to(device)
+        xg = None
 
     elif dataset.startswith("mnist"):
         import torchvision
@@ -74,6 +75,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
 
         x = torch.stack(xs)
         x = x[:p].to(device)
+        xg = x[p:].to(device)
 
     elif dataset.startswith("cifar"):
         import torchvision
@@ -136,6 +138,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
 
         x = torch.stack(xs)
         x = x[:p].to(device)
+        xg = x[p:].to(device)
 
     else:
         raise ValueError("unknown dataset")
@@ -144,7 +147,13 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
     x = dim ** 0.5 * x / x.norm(dim=1, keepdim=True)
     y = (torch.arange(p, dtype=torch.float64, device=device) % 2) * 2 - 1
 
-    return x, y
+    if xg is not None and len(x) > 0:
+        xg = xg - xg.mean(0)
+        xg = dim ** 0.5 * xg / xg.norm(dim=1, keepdim=True)
+        yg = (torch.arange(p, p + len(xg), dtype=torch.float64, device=device) % 2) * 2 - 1
+        return (x, y), (xg, yg)
+
+    return (x, y), None
 
 
 def orthogonal_(tensor, gain=1):

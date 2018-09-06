@@ -130,7 +130,7 @@ def init(args):
     logger.info(desc)
 
     seed = torch.randint(10000, (), dtype=torch.long).item()
-    trainset = get_dataset(args.dataset, args.p, args.dim, seed, device)
+    trainset, testset = get_dataset(args.dataset, args.p, args.dim, seed, device)
 
     model = Model(args.dim, args.width, args.depth, args.kappa, args.lamda)
     model.to(device)
@@ -150,10 +150,10 @@ def init(args):
         optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=0, verbose=True, threshold=-1, threshold_mode="rel", cooldown=args.rlrop_cooldown, min_lr=args.min_learning_rate)
 
-    return model, trainset, logger, optimizer, scheduler, device, desc, seed
+    return model, trainset, testset, logger, optimizer, scheduler, device, desc, seed
 
 
-def train(args, model, trainset, logger, optimizer, scheduler, device, desc, seed):
+def train(args, model, trainset, testset, logger, optimizer, scheduler, device, desc, seed):
     noise = args.noise
 
     measure_points = set(intlogspace(1, args.n_steps_max, 150, with_zero=True, with_end=True))
@@ -192,6 +192,8 @@ def train(args, model, trainset, logger, optimizer, scheduler, device, desc, see
                     data['train'][2]
                 )
             )
+            if testset is not None:
+                data['test'] = error_loss_grad(model, *testset)
 
             if args.optimizer == "adam_rlrop":
                 noise /= optimizer.param_groups[0]["lr"]
