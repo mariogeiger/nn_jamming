@@ -315,6 +315,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         "state": None,
         "deltas": deltas.cpu(),
         "hessian": None,
+        "Neff": n_effective(model, trainset[0], n_derive=1),
     }
 
     if 8 * model.N**2 < 2e9 and args.compute_hessian:

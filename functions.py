@@ -237,6 +237,41 @@ def gradient(output, inputs, retain_graph=None, create_graph=False):
     return torch.cat([x.contiguous().view(-1) for x in grads])
 
 
+def n_effective(f, x, n_derive=1):
+    out = f(x)
+    grads = torch.stack([gradient(o, f.parameters(), retain_graph=True) for o in out])
+
+    u, s, _v = grads.svd()
+    n = (s > 1e-12).long().sum().item()
+
+    if n_derive <= 0:
+        return n
+
+    while True:
+        grads_ = []
+
+        for i in x:
+            a = torch.tensor(i, requires_grad=True)
+            fx = f(a)
+
+            for k in range(n_derive):
+                u = i.clone().normal_()
+                fx = gradient(fx, a, create_graph=True) @ u
+                if fx.grad_fn is None: break  # the derivative is strictly zero
+
+                grads_.append(gradient(fx, f.parameters(), retain_graph=(k < n_derive - 1)))
+
+        grads_ = torch.stack(grads_)
+        grads = torch.cat([grads, grads_])
+
+        u, s, _v = grads.svd()
+        n_ = (s > 1e-12).long().sum().item()
+        print(n)
+        if n == n_:
+            return n
+        n = n_
+
+
 def get_deltas(model, data_x, data_y):
     output = model(data_x)  # [p]
     model.preactivations = None  # free memory
