@@ -4,10 +4,26 @@ import subprocess
 import argparse
 
 
+def find_h(N, L, d):
+    assert L >= 1
+
+    if d is None:
+        # solve : N = h^2 * L + h
+        return round(((N - (N / L) ** 0.5) / L) ** 0.5)
+
+    if L == 1:
+        # solve : N = h (d+1)
+        return round(N / (d + 1))
+
+    # solve : N = h (d+1) + h^2 * (L-1)
+    return round((((d + 1)**2 + 4 * N * (L - 1))**0.5 - (d + 1)) / (2 * (L - 1)))
+
+
 def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--log_dir", type=str, required=True)
+    parser.add_argument("--dim", type=int)
     parser.add_argument("--depth", type=int)
     parser.add_argument("--args", type=str, default="")
     parser.add_argument("--p", type=int, nargs='+', default=[])
@@ -15,25 +31,26 @@ def main():
 
     args = parser.parse_args()
 
-    command = "gpurun python train.py --log_dir {log_dir} --p {{p}} --dim {{h}} --width {{h}} --depth {depth} ".format(
+    command = "gpurun python train.py --log_dir {log_dir} --p {{p}} --dim {{d}} --width {{h}} --depth {depth} ".format(
         log_dir=args.log_dir, depth=args.depth) + args.args
 
     for p in args.p:
-        max_width = (args.max_factor * p / args.depth) ** 0.5
+        max_h = find_h(args.max_factor * p, args.depth, args.dim)
         hs = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 21, 23, 25, 27, 29, 31, 32, 34, 37, 39, 41, 43, 44, 46, 48, 50, 52, 54, 57, 62, 67, 73, 80, 87, 94, 102, 111, 121, 132, 143, 156, 169, 184, 200, 217, 236, 257, 280, 304, 331, 359, 391, 425, 462, 502, 546, 594, 646, 702, 764, 830, 903]
-        hs = [x for x in hs if x <= max_width]
+        hs = [x for x in hs if x <= max_h]
         hs = sorted(hs, reverse=True)
 
         print(">>> hs={}".format(hs))
 
         for h in hs:
-            cmd = command.format(p=p, h=h)
+            d = args.dim if args.dim else h
+            cmd = command.format(p=p, h=h, d=d)
             print(">>> " + cmd)
             run = subprocess.Popen(cmd.split())
             run.wait()
 
             run = list(load_dir(args.log_dir))[-1]
-            if run['last']['train'][0] > 0.5 * args.depth * h ** 2:
+            if run['last']['train'][0] > 0.5 * run['N']:
                 break
 
 
