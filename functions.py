@@ -238,6 +238,8 @@ def gradient(output, inputs, retain_graph=None, create_graph=False):
 
 
 def n_effective(f, x, n_derive=1):
+    assert x.dtype == torch.float64
+
     out = f(x)
     grads = torch.stack([gradient(o, f.parameters(), retain_graph=True) for o in out])
 
@@ -247,7 +249,7 @@ def n_effective(f, x, n_derive=1):
     if n_derive <= 0:
         return n
 
-    while True:
+    for _ in range(1, int(349e6 / grads.numel())):  # limit for out of memory (set for 12GiB)
         grads_ = []
 
         for i in x:
@@ -270,6 +272,8 @@ def n_effective(f, x, n_derive=1):
         if n == n_:
             return n
         n = n_
+
+    return n
 
 
 def get_deltas(model, data_x, data_y):
