@@ -249,7 +249,7 @@ def n_effective(f, x, n_derive=1):
     if n_derive <= 0:
         return n
 
-    for _ in range(1, int(349e6 / grads.numel())):  # limit for out of memory (set for 12GiB)
+    for _ in range(1, int(349e6 / grads.numel() / n_derive)):  # limit for out of memory (set for 12GiB)
         grads_ = []
 
         for i in x:
