@@ -308,20 +308,20 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
     error_loss = error_loss_grad(model, *trainset)
     with torch.no_grad():
-        deltas_train = get_deltas(model, *trainset)
-    with torch.no_grad():
-        deltas_test = get_deltas(model, *testset)
+        deltas = get_deltas(model, *trainset)
 
     run["last"] = {
         "train": error_loss,
         "state": None,
-        "deltas": deltas_train.cpu(),
-        "deltas_test": deltas_test.cpu(),
+        "deltas": deltas.cpu(),
         "hessian": None,
         "Neff": n_effective(model, trainset[0], n_derive=1),
     }
     if testset is not None:
         run['last']['test'] = error_loss_grad(model, *testset)
+        with torch.no_grad():
+            deltas_test = get_deltas(model, *testset)
+        run['last']["deltas_test"] = deltas_test.cpu(),
 
     if 8 * model.N**2 < 2e9 and args.compute_hessian:
         try:
