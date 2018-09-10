@@ -237,21 +237,49 @@ def gradient(output, inputs, retain_graph=None, create_graph=False):
     return torch.cat([x.contiguous().view(-1) for x in grads])
 
 
+def expand_basis(basis, vectors, eps=1e-12):
+    vectors = iter(vectors)
+    assert basis is None or basis.ndimension() == 2
+    n = 1
+
+    while True:
+        vs = []
+        while len(vs) < n:
+            try:
+                vs += [next(vectors)]
+            except StopIteration:
+                if len(vs) == 0:
+                    return basis
+                else:
+                    u, s, v = torch.stack(vs).svd()
+                    vs = v[:, s > eps].t()
+                    del u, s, v
+                    if basis is None:
+                        return vs
+                    else:
+                        u, s, v = torch.cat([basis, vs]).svd()
+                        return v[:, s > eps].t()
+            n = min(vs[0].size(0), int(1e9 / 8 / vs[0].size(0)))
+        u, s, v = torch.stack(vs).svd()
+        vs = v[:, s > eps].t()
+        del u, s, v
+        if basis is None:
+            basis = vs
+        else:
+            u, s, v = torch.cat([basis, vs]).svd()
+            basis = v[:, s > eps].t()
+            del u, s, v
+
+
 def n_effective(f, x, n_derive=1):
     assert x.dtype == torch.float64
 
-    out = f(x)
-    grads = torch.stack([gradient(o, f.parameters(), retain_graph=True) for o in out])
-
-    u, s, _v = grads.svd()
-    n = (s > 1e-12).long().sum().item()
+    basis = expand_basis(None, (gradient(o, f.parameters(), retain_graph=True) for o in f(x)))
 
     if n_derive <= 0:
-        return n
+        return basis.size(0)
 
-    for _ in range(1, int(349e6 / grads.numel() / n_derive)):  # limit for out of memory (set for 12GiB)
-        grads_ = []
-
+    def it():
         for i in x:
             a = torch.tensor(i, requires_grad=True)
             fx = f(a)
@@ -261,19 +289,13 @@ def n_effective(f, x, n_derive=1):
                 fx = gradient(fx, a, create_graph=True) @ u
                 if fx.grad_fn is None: break  # the derivative is strictly zero
 
-                grads_.append(gradient(fx, f.parameters(), retain_graph=(k < n_derive - 1)))
+                yield gradient(fx, f.parameters(), retain_graph=(k < n_derive - 1))
 
-        grads_ = torch.stack(grads_)
-        grads = torch.cat([grads, grads_])
-
-        u, s, _v = grads.svd()
-        n_ = (s > 1e-12).long().sum().item()
-        print(n)
-        if n == n_:
-            return n
-        n = n_
-
-    return n
+    while True:
+        ws = expand_basis(basis, it())
+        if basis.size(0) == ws.size(0):
+            return basis.size(0)
+        basis = ws
 
 
 def get_deltas(model, data_x, data_y):
