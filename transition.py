@@ -28,6 +28,7 @@ def main():
     parser.add_argument("--args", type=str, default="")
     parser.add_argument("--p", type=int, nargs='+', default=[])
     parser.add_argument("--max_factor", type=float)
+    parser.add_argument("--n_unsat", type=int, default=1)
 
     args = parser.parse_args()
 
@@ -42,6 +43,7 @@ def main():
 
         print(">>> hs={}".format(hs))
 
+        n_unsat = 0
         for h in hs:
             d = args.dim if args.dim else h
             cmd = command.format(p=p, h=h, d=d)
@@ -61,8 +63,10 @@ def main():
 
             run = next(run for run in load_dir(args.log_dir) if run['desc'] == desc)
 
-            if run['last']['train'][0] > 1 * run['N']:
-                break
+            if run['last']['train'][0] > 0.1 * run['N']:
+                n_unsat += 1
+                if n_unsat >= args.n_unsat:
+                    break
 
 
 if __name__ == '__main__':
