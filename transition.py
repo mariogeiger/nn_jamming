@@ -48,8 +48,7 @@ def main():
             d = args.dim if args.dim else h
             cmd = command.format(p=p, h=h, d=d)
             print(">>> " + cmd)
-            run = subprocess.Popen(cmd.split())
-            run.wait()
+            subprocess.check_output(cmd.split())
 
             desc = {
                 "p": p,
