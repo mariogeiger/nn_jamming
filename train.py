@@ -322,6 +322,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         with torch.no_grad():
             deltas_test = get_deltas(model, *testset)
         run['last']["deltas_test"] = deltas_test.cpu(),
+        run['p_test'] = len(testset[0])
 
     if 8 * model.N**2 < 2e9 and args.compute_hessian:
         try:
