@@ -49,8 +49,19 @@ def main():
             run = subprocess.Popen(cmd.split())
             run.wait()
 
-            run = list(load_dir(args.log_dir))[-1]
-            if run['last']['train'][0] > 0.5 * run['N']:
+            desc = {
+                "p": p,
+                "dim": d,
+                "depth": args.depth,
+                "width": h,
+                "kappa": 0.5,
+                "lamda": None,
+                "rep": 0,
+            }
+
+            run = next(run for run in load_dir(args.log_dir) if run['desc'] == desc)
+
+            if run['last']['train'][0] > 1 * run['N']:
                 break
 
 
