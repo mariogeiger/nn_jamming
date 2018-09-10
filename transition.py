@@ -48,7 +48,11 @@ def main():
             d = args.dim if args.dim else h
             cmd = command.format(p=p, h=h, d=d)
             print(">>> " + cmd)
-            subprocess.check_output(cmd.split())
+
+            try:
+                subprocess.check_output(cmd.split(), stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
+            except subprocess.CalledProcessError as exc:
+                print("Status : FAIL", exc.returncode, exc.output)
 
             desc = {
                 "p": p,
