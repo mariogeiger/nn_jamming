@@ -49,12 +49,8 @@ def main():
             cmd = command.format(p=p, h=h, d=d)
             print(">>> " + cmd)
 
-            try:
-                output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True, universal_newlines=True)
-            except subprocess.CalledProcessError as exc:
-                print("Status : FAIL", exc.returncode, exc.output)
-            else:
-                print("Output: \n{}\n".format(output))
+            run = subprocess.Popen(cmd.split())
+            run.wait()
 
             desc = {
                 "p": p,
