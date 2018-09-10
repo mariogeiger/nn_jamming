@@ -306,14 +306,17 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
             break
     run["script"] = path_script
 
-    with torch.no_grad():
-        deltas = get_deltas(model, *trainset)
     error_loss = error_loss_grad(model, *trainset)
+    with torch.no_grad():
+        deltas_train = get_deltas(model, *trainset)
+    with torch.no_grad():
+        deltas_test = get_deltas(model, *testset)
 
     run["last"] = {
         "train": error_loss,
         "state": None,
-        "deltas": deltas.cpu(),
+        "deltas": deltas_train.cpu(),
+        "deltas_test": deltas_test.cpu(),
         "hessian": None,
         "Neff": n_effective(model, trainset[0], n_derive=1),
     }
