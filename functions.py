@@ -240,35 +240,30 @@ def gradient(output, inputs, retain_graph=None, create_graph=False):
 def expand_basis(basis, vectors, eps=1e-12):
     vectors = iter(vectors)
     assert basis is None or basis.ndimension() == 2
-    n = 1
+
+    def extand(basis, vs):
+        vs = torch.stack(vs)
+        _u, s, v = vs.svd()
+        vs = v[:, s > eps].t()
+        if basis is None:
+            return vs
+        vs = torch.cat([basis, vs])
+        del basis
+        _u, s, v = vs.svd()
+        return v[:, s > eps].t()
 
     while True:
         vs = []
-        while len(vs) < n:
+        while len(vs) == 0 or len(vs) < vs[0].size(0):
             try:
-                vs += [next(vectors)]
+                vs.append(next(vectors))
             except StopIteration:
                 if len(vs) == 0:
                     return basis
                 else:
-                    u, s, v = torch.stack(vs).svd()
-                    vs = v[:, s > eps].t()
-                    del u, s, v
-                    if basis is None:
-                        return vs
-                    else:
-                        u, s, v = torch.cat([basis, vs]).svd()
-                        return v[:, s > eps].t()
-            n = min(vs[0].size(0), int(1e9 / 8 / vs[0].size(0)))
-        u, s, v = torch.stack(vs).svd()
-        vs = v[:, s > eps].t()
-        del u, s, v
-        if basis is None:
-            basis = vs
-        else:
-            u, s, v = torch.cat([basis, vs]).svd()
-            basis = v[:, s > eps].t()
-            del u, s, v
+                    return extand(basis, vs)
+
+        basis = extand(basis, vs)
 
 
 def n_effective(f, x, n_derive=1):
