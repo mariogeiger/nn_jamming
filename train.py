@@ -315,8 +315,14 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         "state": None,
         "deltas": deltas.cpu(),
         "hessian": None,
-        "Neff": n_effective(model, trainset[0], n_derive=1) if 8 * model.N**2 < 1e9 else None,
+        "Neff": None,
     }
+    if 8 * model.N**2 < 1e9:
+        try:
+            run['last']['Neff'] = n_effective(model, trainset[0], n_derive=1)
+        except RuntimeError:
+            pass
+
     if testset is not None:
         run['last']['test'] = error_loss_grad(model, *testset)
         with torch.no_grad():
