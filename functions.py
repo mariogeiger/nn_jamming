@@ -425,11 +425,11 @@ def dump_run(directory, run):
 
 
 def copy_runs(src, dst):
-    ds = {run['desc'] for run in load_dir(dst)}
+    ds = {frozenset(run['desc'].items()) for run in load_dir(dst)}
     for run in load_dir(src):
         if run['desc'] not in ds:
             dump_run(dst, run)
-            ds.add(run['desc'])
+            ds.add(frozenset(run['desc'].items()))
 
 
 def load_run(run, device=None):
