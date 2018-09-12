@@ -240,35 +240,30 @@ def gradient(output, inputs, retain_graph=None, create_graph=False):
 def expand_basis(basis, vectors, eps=1e-12):
     vectors = iter(vectors)
     assert basis is None or basis.ndimension() == 2
-    n = 1
+
+    def extand(basis, vs):
+        vs = torch.stack(vs)
+        _u, s, v = vs.svd()
+        vs = v[:, s > eps].t()
+        if basis is None:
+            return vs
+        vs = torch.cat([basis, vs])
+        del basis
+        _u, s, v = vs.svd()
+        return v[:, s > eps].t()
 
     while True:
         vs = []
-        while len(vs) < n:
+        while len(vs) == 0 or len(vs) < vs[0].size(0):
             try:
-                vs += [next(vectors)]
+                vs.append(next(vectors))
             except StopIteration:
                 if len(vs) == 0:
                     return basis
                 else:
-                    u, s, v = torch.stack(vs).svd()
-                    vs = v[:, s > eps].t()
-                    del u, s, v
-                    if basis is None:
-                        return vs
-                    else:
-                        u, s, v = torch.cat([basis, vs]).svd()
-                        return v[:, s > eps].t()
-            n = min(vs[0].size(0), int(1e9 / 8 / vs[0].size(0)))
-        u, s, v = torch.stack(vs).svd()
-        vs = v[:, s > eps].t()
-        del u, s, v
-        if basis is None:
-            basis = vs
-        else:
-            u, s, v = torch.cat([basis, vs]).svd()
-            basis = v[:, s > eps].t()
-            del u, s, v
+                    return extand(basis, vs)
+
+        basis = extand(basis, vs)
 
 
 def n_effective(f, x, n_derive=1):
@@ -427,6 +422,26 @@ def dump_run(directory, run):
     with FSLocker(os.path.join(directory, "output.pkl.lock")):
         with open(os.path.join(directory, "output.pkl"), "ab") as f:
             pickle.dump(run, f)
+
+
+def copy_runs(src, dst):
+    ds = {frozenset(run['desc'].items()) for run in load_dir(dst)}
+    for run in load_dir(src):
+        if frozenset(run['desc'].items()) not in ds:
+            dump_run(dst, run)
+            ds.add(frozenset(run['desc'].items()))
+
+
+def load_run(run, device=None):
+    device = torch.device(run['args'].device) if device is None else device
+
+    trainset, testset = get_dataset(run['args'].dataset, run['desc']['p'], run['desc']['dim'], run['seed'], device)
+
+    model = Model(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], run['desc']['kappa'], run['desc']['lamda'])
+    model.load_state_dict(run['last']['state'])
+    model.to(device)
+
+    return model, trainset, testset
 
 
 def simplify(stuff):

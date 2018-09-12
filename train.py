@@ -29,6 +29,7 @@ def parse():
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--n_steps_max", type=int, default=int(1e7))
     parser.add_argument("--compute_hessian", type=to_bool, default="True")
+    parser.add_argument("--compute_neff", type=to_bool, default="True")
     parser.add_argument("--save_hessian", type=to_bool, default="False")
     parser.add_argument("--checkpoints", type=int, nargs='+', default=[])
     parser.add_argument("--noise", type=float, default=0)
@@ -315,8 +316,14 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         "state": None,
         "deltas": deltas.cpu(),
         "hessian": None,
-        "Neff": n_effective(model, trainset[0], n_derive=1) if 8 * model.N**2 < 2e9 else None,
+        "Neff": None,
     }
+    if 8 * model.N**2 < 1e9 and args.compute_neff:
+        try:
+            run['last']['Neff'] = n_effective(model, trainset[0], n_derive=1)
+        except RuntimeError:
+            pass
+
     if testset is not None:
         run['last']['test'] = error_loss_grad(model, *testset)
         with torch.no_grad():

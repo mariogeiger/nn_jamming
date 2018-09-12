@@ -29,10 +29,17 @@ def main():
     parser.add_argument("--p", type=int, nargs='+', default=[])
     parser.add_argument("--max_factor", type=float)
     parser.add_argument("--n_unsat", type=int, default=1)
+    parser.add_argument("--launcher", type=str, default="gpurun")
 
     args = parser.parse_args()
 
-    command = "gpurun python train.py --log_dir {log_dir} --p {{p}} --dim {{d}} --width {{h}} --depth {depth} ".format(
+    command = ""
+    if args.launcher == "gpurun":
+        command = "gpurun "
+    if args.launcher == "srun":
+        command = "srun --partition gpu --qos gpu_free --gres gpu:1 --time 12:00:00 --mem 8G "
+
+    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{d}} --width {{h}} --depth {depth} ".format(
         log_dir=args.log_dir, depth=args.depth) + args.args
 
     for p in args.p:
