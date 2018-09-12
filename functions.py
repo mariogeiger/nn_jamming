@@ -427,7 +427,7 @@ def dump_run(directory, run):
 def copy_runs(src, dst):
     ds = {frozenset(run['desc'].items()) for run in load_dir(dst)}
     for run in load_dir(src):
-        if run['desc'] not in ds:
+        if frozenset(run['desc'].items()) not in ds:
             dump_run(dst, run)
             ds.add(frozenset(run['desc'].items()))
 
