@@ -424,6 +424,26 @@ def dump_run(directory, run):
             pickle.dump(run, f)
 
 
+def copy_runs(src, dst):
+    ds = {run['desc'] for run in load_dir(dst)}
+    for run in load_dir(src):
+        if run['desc'] not in ds:
+            dump_run(dst, run)
+            ds.add(run['desc'])
+
+
+def load_run(run, device=None):
+    device = torch.device(run['args'].device) if device is None else device
+
+    trainset, testset = get_dataset(run['args'].dataset, run['desc']['p'], run['desc']['dim'], run['seed'], device)
+
+    model = Model(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], run['desc']['kappa'], run['desc']['lamda'])
+    model.load_state_dict(run['last']['state'])
+    model.to(device)
+
+    return model, trainset, testset
+
+
 def simplify(stuff):
     if isinstance(stuff, list):
         return [simplify(x) for x in stuff]
