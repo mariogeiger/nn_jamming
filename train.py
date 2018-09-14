@@ -25,7 +25,7 @@ def parse():
     parser.add_argument("--depth", type=int, required=True)
     parser.add_argument("--rep", type=int, default=0)
 
-    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "adam_rlrop", "adam_simple"}, default="adam0")
+    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple"}, default="adam0")
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--n_steps_max", type=int, default=int(1e7))
     parser.add_argument("--compute_hessian", type=to_bool, default="True")
