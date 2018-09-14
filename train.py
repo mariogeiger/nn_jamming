@@ -25,7 +25,7 @@ def parse():
     parser.add_argument("--depth", type=int, required=True)
     parser.add_argument("--rep", type=int, default=0)
 
-    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "adam_rlrop"}, default="adam0")
+    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "adam_rlrop", "adam_simple"}, default="adam0")
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--n_steps_max", type=int, default=int(1e7))
     parser.add_argument("--compute_hessian", type=to_bool, default="True")
@@ -49,6 +49,11 @@ def parse():
 
     args = parser.parse_args()
 
+    if args.optimizer == "adam_simple":
+        if args.learning_rate is None:
+            args.learning_rate = 1e-4
+        if args.batch_size is None:
+            args.batch_size = args.p
     if args.optimizer == "adam_rlrop":
         if args.learning_rate is None:
             args.learning_rate = 1e-3
@@ -143,7 +148,7 @@ def init(args):
     scheduler = None
     if args.optimizer == "sgd":
         optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=0)
-    if args.optimizer == "adam" or args.optimizer == "adam0":
+    if args.optimizer == "adam" or args.optimizer == "adam0" or args.optimizer == "adam_simple":
         optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     if args.optimizer == "fire":
         optimizer = FIRE(model.parameters(), dt_max=args.learning_rate, a_start=1 - args.momentum)
