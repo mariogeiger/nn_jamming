@@ -381,7 +381,7 @@ def error_loss_grad(model, data_x, data_y):
     loss = 0.5 * ((delta > 0).type_as(data_x) * delta.abs().pow(2)).mean() - model.lamda * model.kappa
     grad_sum_norm = gradient(loss, model.parameters()).norm().item()
 
-    return (delta > 0).long().sum().item(), loss.item(), grad_sum_norm
+    return (delta > 0).long().sum().item(), loss.item(), grad_sum_norm, (delta > model.kappa).long().sum().item()
 
 
 def make_a_step(model, optimizer, data_x, data_y):
