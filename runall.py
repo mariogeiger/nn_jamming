@@ -45,6 +45,7 @@ def main():
         cmd = command.format(p=p)
         running.append(subprocess.Popen(cmd.split()))
         print(cmd)
+        time.sleep(2)
 
     for x in running:
         x.wait()
