@@ -99,6 +99,11 @@ def parse():
             args.min_learning_rate = 1e-3
         if args.batch_size is None:
             args.batch_size = args.p
+    if args.optimizer == "fire_simple":
+        if args.learning_rate is None:
+            args.learning_rate = 1e-2
+        if args.batch_size is None:
+            args.batch_size = args.p
 
     return args
 
@@ -155,7 +160,7 @@ def init(args):
         optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=0)
     if args.optimizer == "adam" or args.optimizer == "adam0" or args.optimizer == "adam_simple":
         optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-    if args.optimizer == "fire":
+    if args.optimizer == "fire" or args.optimizer == "fire_simple":
         optimizer = FIRE(model.parameters(), dt_max=args.learning_rate, a_start=1 - args.momentum)
     if args.optimizer == "adam_rlrop":
         optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
