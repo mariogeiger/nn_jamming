@@ -47,6 +47,9 @@ def parse():
     parser.add_argument("--n_steps_bs_grow", type=int)
     parser.add_argument("--bs_grow_factor", type=float)
 
+    parser.add_argument("--precision", choices={"f32", "f64"}, default="f64")
+    parser.add_argument("--activation", choices={"relu", "tanh"}, default="relu")
+
     args = parser.parse_args()
 
     if args.optimizer == "adam_simple":
@@ -103,6 +106,8 @@ def parse():
 def init(args):
     torch.backends.cudnn.benchmark = True
     device = torch.device(args.device)
+    dtype = torch.float32 if args.precision == "f32" else torch.float64
+    torch.set_default_dtype(dtype)
 
     try:
         os.mkdir(args.log_dir)
@@ -135,13 +140,13 @@ def init(args):
 
     logger.info(desc)
 
-    seed = torch.randint(10000, (), dtype=torch.long).item()
-    trainset, testset = get_dataset(args.dataset, args.p, args.dim, seed, device)
+    seed = torch.randint(2 ** 62, (), dtype=torch.long).item()
+    trainset, testset = get_dataset(args.dataset, args.p, args.dim, seed, device, dtype)
 
-    model = Model(args.dim, args.width, args.depth, args.kappa, args.lamda)
+    activation = F.relu if args.activation == "relu" else torch.tanh
+    model = Model(args.dim, args.width, args.depth, args.kappa, args.lamda, activation)
     model.to(device)
-
-    model.type(torch.float64)
+    model.type(dtype)
 
     print("N={}".format(model.N))
 

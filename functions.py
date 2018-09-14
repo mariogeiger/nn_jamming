@@ -23,7 +23,7 @@ class FSLocker:
         self.f.close()
 
 
-def get_dataset(dataset, p, dim, seed=None, device=None):
+def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
     if seed is not None:
         torch.manual_seed(seed)
 
@@ -147,10 +147,17 @@ def get_dataset(dataset, p, dim, seed=None, device=None):
     x = dim ** 0.5 * x / x.norm(dim=1, keepdim=True)
     y = (torch.arange(p, dtype=torch.float64, device=device) % 2) * 2 - 1
 
+    if dtype is not None:
+        x, y = x.type(dtype), y.type(dtype)
+
     if xg is not None and len(x) > 0:
         xg = xg - xg.mean(0)
         xg = dim ** 0.5 * xg / xg.norm(dim=1, keepdim=True)
         yg = (torch.arange(p, p + len(xg), dtype=torch.float64, device=device) % 2) * 2 - 1
+
+        if dtype is not None:
+            xg, yg = xg.type(dtype), yg.type(dtype)
+
         return (x, y), (xg, yg)
 
     return (x, y), None
@@ -181,7 +188,7 @@ def orthogonal_(tensor, gain=1):
 
 class Model(nn.Module):
 
-    def __init__(self, dim, width, depth, kappa=0.5, lamda=None):
+    def __init__(self, dim, width, depth, kappa=0.5, lamda=None, activation=F.relu):
         super().__init__()
 
         layers = nn.ModuleList()
@@ -212,6 +219,7 @@ class Model(nn.Module):
         self.dim = dim
         self.width = width
         self.depth = depth
+        self.activation = activation
         self.layers = layers
         self.preactivations = None
         self.N = sum(layer.weight.numel() for layer in self.layers)
@@ -222,7 +230,7 @@ class Model(nn.Module):
         for layer in self.layers[:-1]:
             x = layer(x)
             self.preactivations.append(x)
-            x = F.relu(x)
+            x = self.activation(x)
 
         return self.layers[-1](x).view(-1)
 
