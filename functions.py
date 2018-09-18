@@ -114,6 +114,17 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
                 lambda x: x.view(-1).type(torch.float64),
                 lambda x: (x - m) @ v[:, :dim] / e[:dim] ** 0.5,
             ])
+        elif dataset == "cifar_pca_rot":
+            m, v, e = torch.load('../cifar10/pca.pkl')
+            assert dim <= (e > 0).long().sum().item()
+            proj = torch.empty(dim, dim, dtype=torch.float64)
+            orthogonal_(proj)
+            transform = torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor(),
+                lambda x: x.view(-1).type(torch.float64),
+                lambda x: (x - m) @ v[:, :dim] / e[:dim] ** 0.5,
+                lambda x: proj @ x
+            ])
         else:
             raise ValueError("unknown dataset")
 
