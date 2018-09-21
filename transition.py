@@ -55,7 +55,7 @@ def main():
         for h in hs:
             d = args.dim if args.dim else h
             N = d * h + h ** 2 * (args.depth - 1) + h
-            cmd = command.format(p=p, h=h, d=d, nd_stop=N // 10 if args.fast else 0)
+            cmd = command.format(p=p, h=h, d=d, nd_stop=N // 20 if args.fast else 0)
             print(">>> " + cmd)
 
             run = subprocess.Popen(cmd.split())
