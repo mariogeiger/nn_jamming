@@ -32,7 +32,7 @@ def parse():
     parser.add_argument("--compute_neff", type=to_bool, default="True")
     parser.add_argument("--save_hessian", type=to_bool, default="False")
     parser.add_argument("--checkpoints", type=int, nargs='+', default=[])
-    parser.add_argument("--noise", type=float, default=0)
+    parser.add_argument("--nd_stop", type=int, default=0)
 
     parser.add_argument("--kappa", type=float, default=0.5)
     parser.add_argument("--lamda", type=float)
@@ -170,8 +170,6 @@ def init(args):
 
 
 def train(args, model, trainset, testset, logger, optimizer, scheduler, device, desc, seed):
-    noise = args.noise
-
     measure_points = set(intlogspace(1, args.n_steps_max, 150, with_zero=True, with_end=True))
     dynamics = []
 
@@ -212,9 +210,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
                 data['test'] = error_loss_grad(model, *testset)
 
             if args.optimizer == "adam_rlrop":
-                noise /= optimizer.param_groups[0]["lr"]
                 scheduler.step(data['train'][1])
-                noise *= optimizer.param_groups[0]["lr"]
 
             data['batch_size'] = batch_size
             data['optimizer'] = {
@@ -241,7 +237,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
             time_1 = time_logging.end("error and loss", time_1)
 
-            if data['train'][0] == 0:  # with the hinge, no errors => finished
+            if data['train'][0] <= args.nd_stop:  # with the hinge, no errors => finished
                 break
 
         if step in args.checkpoints:
@@ -284,8 +280,6 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
                     pg['lr'] = max(args.min_learning_rate, pg['lr'] / args.lr_decay_factor)
                     logger.info("({}) learning rate set to {}".format(desc['p'], pg['lr']))
 
-            noise = noise / args.lr_decay_factor
-
         if args.n_steps_bs_grow and step > 0 and step % args.n_steps_bs_grow == 0:
             batch_size = min(args.p, int(batch_size * args.bs_grow_factor))
             loader = simple_loader(*trainset, batch_size)
@@ -295,10 +289,6 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         time_1 = time_logging.end("load data", time_1)
 
         make_a_step(model, optimizer, data, target)
-        if noise > 0:
-            for p in model.parameters():
-                with torch.no_grad():
-                    p.add_(noise * p.pow(2).mean().sqrt(), torch.empty_like(p).normal_())
 
         time_1 = time_logging.end("make a step", time_1)
 

@@ -30,6 +30,7 @@ def main():
     parser.add_argument("--max_factor", type=float)
     parser.add_argument("--n_unsat", type=int, default=1)
     parser.add_argument("--launcher", type=str, default="gpurun")
+    parser.add_argument("--fast", type=to_bool, default="False")
 
     args = parser.parse_args()
 
@@ -39,7 +40,7 @@ def main():
     if args.launcher == "srun":
         command = "srun --partition gpu --qos gpu_free --gres gpu:1 --time 12:00:00 --mem 8G "
 
-    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{d}} --width {{h}} --depth {depth} ".format(
+    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{d}} --width {{h}} --depth {depth} --nd_stop {{nd_stop}}".format(
         log_dir=args.log_dir, depth=args.depth) + args.args
 
     for p in args.p:
@@ -53,7 +54,8 @@ def main():
         n_unsat = 0
         for h in hs:
             d = args.dim if args.dim else h
-            cmd = command.format(p=p, h=h, d=d)
+            N = d * h + h ** 2 * (args.depth - 1) + h
+            cmd = command.format(p=p, h=h, d=d, nd_stop=N // 10 if args.fast else 0)
             print(">>> " + cmd)
 
             run = subprocess.Popen(cmd.split())
