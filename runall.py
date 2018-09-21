@@ -15,8 +15,8 @@ def main():
     parser.add_argument("--dim", type=int)
     parser.add_argument("--width", type=int)
     parser.add_argument("--depth", type=int)
-    parser.add_argument("--factor", type=float, required=True)
-    parser.add_argument("--factor_step", type=float, required=True)
+    parser.add_argument("--r_start", type=float, required=True)
+    parser.add_argument("--r_end", type=float, required=True)
     parser.add_argument("--num", type=int, required=True)
     parser.add_argument("--args", type=str, default="")
     parser.add_argument("--launcher", type=str, default="gpurun")
@@ -37,7 +37,7 @@ def main():
     else:
         N = args.dim  # weight
 
-    ps = sorted(list(set(map(int, np.linspace(args.factor * N, (args.factor + args.factor_step) * N, num=args.num)))))
+    ps = sorted(list(set(map(int, np.linspace(args.r_start * N, args.r_end * N, num=args.num)))))
     print("N={} => p's = {}".format(N, ps))
 
     running = []
