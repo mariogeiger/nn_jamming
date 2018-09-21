@@ -54,7 +54,7 @@ def parse():
 
     if args.optimizer == "adam_simple":
         if args.learning_rate is None:
-            args.learning_rate = 1e-5
+            args.learning_rate = 1e-4
         if args.batch_size is None:
             args.batch_size = args.p
     if args.optimizer == "adam_rlrop":
