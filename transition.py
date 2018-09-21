@@ -40,7 +40,7 @@ def main():
     if args.launcher == "srun":
         command = "srun --partition gpu --qos gpu_free --gres gpu:1 --time 12:00:00 --mem 8G "
 
-    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{d}} --width {{h}} --depth {depth} --nd_stop {{nd_stop}}".format(
+    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{d}} --width {{h}} --depth {depth} --nd_stop {{nd_stop}} ".format(
         log_dir=args.log_dir, depth=args.depth) + args.args
 
     for p in args.p:
