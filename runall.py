@@ -19,10 +19,17 @@ def main():
     parser.add_argument("--factor_step", type=float, required=True)
     parser.add_argument("--num", type=int, required=True)
     parser.add_argument("--args", type=str, default="")
+    parser.add_argument("--launcher", type=str, default="gpurun")
 
     args = parser.parse_args()
 
-    command = "gpurun python train.py --log_dir {log_dir} --p {{p}} --dim {dim} --width {width} --depth {depth} ".format(
+    command = ""
+    if args.launcher == "gpurun":
+        command = "gpurun "
+    if args.launcher == "srun":
+        command = "srun --partition gpu --qos gpu --gres gpu:1 --time 3-00:00:00 --mem 16G "
+
+    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {dim} --width {width} --depth {depth} ".format(
         log_dir=args.log_dir, dim=args.dim, width=args.width, depth=args.depth) + args.args
 
     if args.depth > 0:
