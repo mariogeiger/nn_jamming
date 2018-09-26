@@ -1,6 +1,8 @@
 # Jamming in neural networks
 
-### Simply a fully-connected network trained on random data with a quadratic hinge loss
+Code used in https://arxiv.org/abs/1809.09349
+
+### Fully-connected network trained with a quadratic hinge loss
 
 The main file is `train.py`
 
@@ -12,7 +14,7 @@ python train.py --log_dir R40d40w5h --dim 40 --width 40 --depth 5 --p 24000 --op
 It will train a neural network of 5 hidden layers of 40 units on a random dataset in dimension 40.
 It will create a directory called `R40d40w5h` and save the logs and and many measures of the run.
 
-The script has many parameters, [see here](https://github.com/mariogeiger/nn_jamming/blob/master/train.py#L18-L51).
+The script has many parameters, [see here](https://github.com/mariogeiger/nn_jamming/blob/master/train.py#L18-L50).
 
 Here is an example of code that load the results of a run
 ```python
@@ -28,7 +30,3 @@ print("{depth} layers of {width} units trained on {p} points".format(**run['desc
 dynamics = run['dynamics']  # list containing many measures during the training
 print("The finall loss is {}".format(dynamics[-1]['train'][1]))
 ```
-
-
-paper draft (edit link) : https://v2.overleaf.com/7459427742tpqzbsjzrrvx
-marginal stability calculus from Stefano (readonly) : https://www.sharelatex.com/read/xtyghwcstgvx
