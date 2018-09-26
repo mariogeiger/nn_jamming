@@ -132,8 +132,15 @@ def init(args):
     logger.handlers = []
     ch = logging.StreamHandler()
     logger.addHandler(ch)
-    fh = logging.FileHandler(os.path.join(args.log_dir, "log.txt"))
+    for i in count():
+        path_log = os.path.join(args.log_dir, "log_{}.py".format(i))
+        if not os.path.isfile(path_log):
+            run_id = i
+            fh = logging.FileHandler(path_log)
+            break
     logger.addHandler(fh)
+
+    copyfile(__file__, os.path.join(args.log_dir, "script_{}.py".format(run_id)))
 
     logger.info("%s", repr(args))
 
@@ -164,10 +171,10 @@ def init(args):
         optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=0, verbose=True, threshold=-1, threshold_mode="rel", cooldown=args.rlrop_cooldown, min_lr=args.min_learning_rate)
 
-    return model, trainset, testset, logger, optimizer, scheduler, device, desc, seed
+    return model, trainset, testset, logger, optimizer, scheduler, device, desc, seed, run_id
 
 
-def train(args, model, trainset, testset, logger, optimizer, scheduler, device, desc, seed):
+def train(args, model, trainset, testset, logger, optimizer, scheduler, device, desc, seed, run_id):
     measure_points = set(intlogspace(1, args.n_steps_max, 150, with_zero=True, with_end=True))
     dynamics = []
 
@@ -195,7 +202,8 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
             data['step'] = step
             data['train'] = error_loss_grad(model, *trainset)
-            logger.info("({}) [{}] train={:d} ({:.1f}%), {:.2g}, |Grad|={:.2g}".format(
+            logger.info("({}|{}) [{}] train={:d} ({:.1f}%), {:.2g}, |Grad|={:.2g}".format(
+                    run_id,
                     desc['p'],
                     step,
                     data['train'][0],
@@ -239,11 +247,11 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
                 break
 
         if step in args.checkpoints:
-            logger.info("({}) checkpoint".format(desc['p']))
+            logger.info("({}|{}) checkpoint".format(run_id, desc['p']))
 
             hessian = None
             if 8 * model.N**2 < 2e9 and args.compute_hessian:
-                logger.info("({}) compute the hessian".format(desc['p']))
+                logger.info("({}|{}) compute the hessian".format(run_id, desc['p']))
                 hess1, hess2, e, e1, e2 = compute_hessian_evalues(model, *trainset)
 
                 hessian = {
@@ -273,15 +281,15 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
             for pg in optimizer.param_groups:
                 if isinstance(optimizer, FIRE):
                     pg['dt_max'] = max(args.min_learning_rate, pg['dt_max'] / args.lr_decay_factor)
-                    logger.info("({}) dt_max set to {}".format(desc['p'], pg['dt_max']))
+                    logger.info("({}|{}) dt_max set to {}".format(run_id, desc['p'], pg['dt_max']))
                 else:
                     pg['lr'] = max(args.min_learning_rate, pg['lr'] / args.lr_decay_factor)
-                    logger.info("({}) learning rate set to {}".format(desc['p'], pg['lr']))
+                    logger.info("({}|{}) learning rate set to {}".format(run_id, desc['p'], pg['lr']))
 
         if args.n_steps_bs_grow and step > 0 and step % args.n_steps_bs_grow == 0:
             batch_size = min(args.p, int(batch_size * args.bs_grow_factor))
             loader = simple_loader(*trainset, batch_size)
-            logger.info("({}) batch size set to {}".format(desc['p'], batch_size))
+            logger.info("({}|{}) batch size set to {}".format(run_id, desc['p'], batch_size))
 
         data, target = next(loader)
         time_1 = time_logging.end("load data", time_1)
@@ -295,6 +303,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
     del optimizer
 
     run = {
+        "id": run_id,
         "desc": desc,
         "args": args,
         "seed": seed,
@@ -302,13 +311,6 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         "dynamics": dynamics,
         "checkpoints": checkpoints,
     }
-
-    for i in count():
-        path_script = os.path.join(args.log_dir, "script_{}.py".format(i))
-        if not os.path.isfile(path_script):
-            copyfile(__file__, path_script)
-            break
-    run["script"] = path_script
 
     error_loss = error_loss_grad(model, *trainset)
     with torch.no_grad():
@@ -336,7 +338,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
     if 8 * model.N**2 < 2e9 and args.compute_hessian:
         try:
-            logger.info("({}) compute the hessian".format(desc['p']))
+            logger.info("({}|{}) compute the hessian".format(run_id, desc['p']))
             hess1, hess2, e, e1, e2 = compute_hessian_evalues(model, *trainset)
 
             hessian = {
