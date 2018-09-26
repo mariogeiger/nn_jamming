@@ -66,8 +66,7 @@ def main():
                 "dim": d,
                 "depth": args.depth,
                 "width": h,
-                "kappa": 0.5,
-                "lamda": None,
+                "kappa": 1,
                 "rep": 0,
             }
 

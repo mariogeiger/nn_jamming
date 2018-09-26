@@ -199,39 +199,33 @@ def orthogonal_(tensor, gain=1):
 
 class Model(nn.Module):
 
-    def __init__(self, dim, width, depth, kappa=0.5, lamda=None, activation=F.relu):
+    def __init__(self, d, h, depth, activation=F.relu, kappa=1):
         super().__init__()
 
         layers = nn.ModuleList()
 
-        f = dim
+        f = d
 
         for _ in range(depth):
-            lin = nn.Linear(f, width, bias=True)
+            lin = nn.Linear(f, h, bias=True)
             orthogonal_(lin.weight)
             nn.init.zeros_(lin.bias)
 
             layers += [lin]
-            f = width
+            f = h
 
         lin = nn.Linear(f, 1, bias=True)
         orthogonal_(lin.weight, gain=kappa)
         nn.init.zeros_(lin.bias)
 
         layers += [lin]
+        self.layers = layers
 
-        if lamda is not None:
-            self.kappa = nn.Parameter(torch.tensor(kappa))
-            self.lamda = lamda
-        else:
-            self.kappa = kappa
-            self.lamda = 0
-
-        self.dim = dim
-        self.width = width
+        self.d = d
+        self.h = h
         self.depth = depth
         self.activation = activation
-        self.layers = layers
+        self.kappa = kappa
         self.preactivations = None
         self.N = sum(layer.weight.numel() for layer in self.layers)
 
@@ -359,7 +353,7 @@ def compute_hp(model, deltas):
     '''
     Compute extensive Hp
     '''
-    from hessian_pytorch import hessian
+    from hessian import hessian
     return hessian((deltas.detach() * deltas).sum(), model.parameters())  # Delta_i da db Delta_i
 
 
@@ -397,7 +391,7 @@ def error_loss_grad(model, data_x, data_y):
     model.preactivations = None  # free memory
 
     delta = model.kappa - output * data_y  # [p]
-    loss = 0.5 * ((delta > 0).type_as(data_x) * delta.abs().pow(2)).mean() - model.lamda * model.kappa
+    loss = 0.5 * F.relu(delta).pow(2).mean()
     grad_sum_norm = gradient(loss, model.parameters()).norm().item()
 
     return (delta > 0).long().sum().item(), loss.item(), grad_sum_norm, (delta > model.kappa).long().sum().item()
@@ -415,7 +409,7 @@ def make_a_step(model, optimizer, data_x, data_y):
         return 0
 
     deltas = get_deltas(model, *mist)
-    loss = 0.5 * deltas.pow(2).sum() / data_x.size(0) - model.lamda * model.kappa
+    loss = 0.5 * deltas.pow(2).sum() / data_x.size(0)
 
     optimizer.zero_grad()
     loss.backward()
@@ -456,7 +450,7 @@ def load_run(run, device=None):
 
     trainset, testset = get_dataset(run['args'].dataset, run['desc']['p'], run['desc']['dim'], run['seed'], device)
 
-    model = Model(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], run['desc']['kappa'], run['desc']['lamda'])
+    model = Model(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], kappa=run['desc']['kappa'])
     model.load_state_dict(run['last']['state'])
     model.to(device)
 
@@ -513,3 +507,16 @@ def to_bool(arg):
     if arg == "True": return True
     if arg == "False": return False
     raise ValueError()
+
+
+def parse_kmg(arg):
+    arg = arg.strip()
+    if arg.endswith("k"):
+        return int(arg[:-1]) * 1000
+    if arg.endswith("M"):
+        return int(arg[:-1]) * 1000 ** 2
+    if arg.endswith("G"):
+        return int(arg[:-1]) * 1000 ** 3
+    if arg.endswith("T"):
+        return int(arg[:-1]) * 1000 ** 4
+    return int(arg)

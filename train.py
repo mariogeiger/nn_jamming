@@ -25,23 +25,22 @@ def parse():
     parser.add_argument("--depth", type=int, required=True)
     parser.add_argument("--rep", type=int, default=0)
 
-    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple"}, default="adam0")
-    parser.add_argument("--momentum", type=float, default=0.9)
-    parser.add_argument("--n_steps_max", type=int, default=int(1e7))
+    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple"}, required=True)
+    parser.add_argument("--n_steps_max", type=parse_kmg, required=True)
     parser.add_argument("--compute_hessian", type=to_bool, default="True")
     parser.add_argument("--compute_neff", type=to_bool, default="True")
     parser.add_argument("--save_hessian", type=to_bool, default="False")
     parser.add_argument("--checkpoints", type=int, nargs='+', default=[])
     parser.add_argument("--nd_stop", type=int, default=0)
 
-    parser.add_argument("--kappa", type=float, default=0.5)
-    parser.add_argument("--lamda", type=float)
+    parser.add_argument("--kappa", type=float, default=1)
 
     parser.add_argument("--learning_rate", type=float)
     parser.add_argument("--n_steps_lr_decay", type=int)
     parser.add_argument("--lr_decay_factor", type=float)
     parser.add_argument("--min_learning_rate", type=float)
     parser.add_argument("--rlrop_cooldown", type=float)
+    parser.add_argument("--momentum", type=float, default=0.9)
 
     parser.add_argument("--batch_size", type=int)
     parser.add_argument("--n_steps_bs_grow", type=int)
@@ -125,7 +124,6 @@ def init(args):
         "depth": args.depth,
         "width": args.width,
         "kappa": args.kappa,
-        "lamda": args.lamda,
         "rep": args.rep,
     }
 
@@ -149,7 +147,7 @@ def init(args):
     trainset, testset = get_dataset(args.dataset, args.p, args.dim, seed, device, dtype)
 
     activation = F.relu if args.activation == "relu" else torch.tanh
-    model = Model(args.dim, args.width, args.depth, args.kappa, args.lamda, activation)
+    model = Model(args.dim, args.width, args.depth, activation, kappa=args.kappa)
     model.to(device)
     model.type(dtype)
 
