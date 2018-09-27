@@ -7,6 +7,7 @@ import pickle
 import os
 import numpy as np
 import fcntl
+from hessian import gradient
 
 
 class FSLocker:
@@ -26,6 +27,9 @@ class FSLocker:
 def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
     if seed is not None:
         torch.manual_seed(seed)
+
+    y = None
+    yg = None
 
     if dataset == "random":
         x = torch.randn(p, dim, dtype=torch.float64).to(device)
@@ -62,16 +66,93 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
         dataset = []
         for i, xy in enumerate(trainset):
             dataset.append(xy)
-            if i % 100 == 0: print("mnist {:.1f}%".format(100 * i / (len(trainset) + len(testset))), end="        \r")
+            if i % 100 == 0: print("\rmnist {:.1f}%".format(100 * i / (len(trainset) + len(testset))), end=" ")
         for i, xy in enumerate(testset):
             dataset.append(xy)
-            if i % 100 == 0: print("mnist {:.1f}%".format(100 * (len(trainset) + i) / (len(trainset) + len(testset))), end="        \r")
+            if i % 100 == 0: print("\rmnist {:.1f}%".format(100 * (len(trainset) + i) / (len(trainset) + len(testset))), end=" ")
+        print("\rmnist complete")
 
         classes = [[x for x, y in dataset if y == i] for i in range(2)]
         classes = [[xs[i] for i in torch.randperm(len(xs))] for xs in classes]
 
         xs = list(chain(*zip(*classes)))
         assert p <= len(xs), "p={} and we have {} images".format(p, len(xs))
+
+        x = torch.stack(xs)
+        xg = x[p:].to(device)
+        x = x[:p].to(device)
+
+    elif dataset == "cifar100":
+        import torchvision
+        from itertools import chain
+
+        assert dim == 3 * 32 * 32
+        transform = torchvision.transforms.Compose([
+            torchvision.transforms.ToTensor(),
+            lambda x: x.view(-1).type(torch.float64)
+        ])
+
+        trainset = torchvision.datasets.CIFAR100('../cifar100', train=True, download=True, transform=transform)
+        testset = torchvision.datasets.CIFAR100('../cifar100', train=False, transform=transform)
+
+        dataset = []
+        for i, xy in enumerate(trainset):
+            dataset.append(xy)
+            if i % 100 == 0: print("\rcifar100 {:.1f}%".format(100 * i / (len(trainset) + len(testset))), end=" ")
+        for i, xy in enumerate(testset):
+            dataset.append(xy)
+            if i % 100 == 0: print("\rcifar100 {:.1f}%".format(100 * (len(trainset) + i) / (len(trainset) + len(testset))), end=" ")
+        print("\rcifar100 complete")
+
+        classes = [[x for x, y in dataset if y == i] for i in range(100)]
+        classes = [[xs[i] for i in torch.randperm(len(xs))] for xs in classes]
+
+        xs = list(chain(*zip(*classes)))
+        assert p <= len(xs), "p={} and we have {} images".format(p, len(xs))
+
+        y = -torch.ones(len(xs), 100, dtype=torch.float64, device=device)
+        for i in range(len(xs)):
+            y[i, i % 100] = 1
+        yg = y[p:].to(device)
+        y = y[:p].to(device)
+
+        x = torch.stack(xs)
+        xg = x[p:].to(device)
+        x = x[:p].to(device)
+
+    elif dataset == "cifar10":
+        import torchvision
+        from itertools import chain
+
+        assert dim == 3 * 32 * 32
+        transform = torchvision.transforms.Compose([
+            torchvision.transforms.ToTensor(),
+            lambda x: x.view(-1).type(torch.float64)
+        ])
+
+        trainset = torchvision.datasets.CIFAR10('../cifar10', train=True, download=True, transform=transform)
+        testset = torchvision.datasets.CIFAR10('../cifar10', train=False, transform=transform)
+
+        dataset = []
+        for i, xy in enumerate(trainset):
+            dataset.append(xy)
+            if i % 100 == 0: print("\rcifar10 {:.1f}%".format(100 * i / (len(trainset) + len(testset))), end=" ")
+        for i, xy in enumerate(testset):
+            dataset.append(xy)
+            if i % 100 == 0: print("\rcifar10 {:.1f}%".format(100 * (len(trainset) + i) / (len(trainset) + len(testset))), end=" ")
+        print("\rcifar10 complete")
+
+        classes = [[x for x, y in dataset if y == i] for i in range(10)]
+        classes = [[xs[i] for i in torch.randperm(len(xs))] for xs in classes]
+
+        xs = list(chain(*zip(*classes)))
+        assert p <= len(xs), "p={} and we have {} images".format(p, len(xs))
+
+        y = -torch.ones(len(xs), 10, dtype=torch.float64, device=device)
+        for i in range(len(xs)):
+            y[i, i % 10] = 1
+        yg = y[p:].to(device)
+        y = y[:p].to(device)
 
         x = torch.stack(xs)
         xg = x[p:].to(device)
@@ -136,10 +217,11 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
         dataset = []
         for i, xy in enumerate(trainset):
             dataset.append(xy)
-            if i % 100 == 0: print("cifar10 {:.1f}%".format(100 * i / (len(trainset) + len(testset))), end="        \r")
+            if i % 100 == 0: print("\rcifar10 {:.1f}%".format(100 * i / (len(trainset) + len(testset))), end=" ")
         for i, xy in enumerate(testset):
             dataset.append(xy)
-            if i % 100 == 0: print("cifar10 {:.1f}%".format(100 * (len(trainset) + i) / (len(trainset) + len(testset))), end="        \r")
+            if i % 100 == 0: print("\rcifar10 {:.1f}%".format(100 * (len(trainset) + i) / (len(trainset) + len(testset))), end=" ")
+        print("\rcifar10 complete")
 
         classes = [[x for x, y in dataset if y == i] for i in range(2)]
         classes = [[xs[i] for i in torch.randperm(len(xs))] for xs in classes]
@@ -156,7 +238,8 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
 
     x = x - x.mean(0)
     x = dim ** 0.5 * x / x.norm(dim=1, keepdim=True)
-    y = (torch.arange(p, dtype=torch.float64, device=device) % 2) * 2 - 1
+    if y is None:
+        y = (torch.arange(p, dtype=torch.float64, device=device) % 2) * 2 - 1
 
     if dtype is not None:
         x, y = x.type(dtype), y.type(dtype)
@@ -164,7 +247,8 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
     if xg is not None and len(x) > 0:
         xg = xg - xg.mean(0)
         xg = dim ** 0.5 * xg / xg.norm(dim=1, keepdim=True)
-        yg = (torch.arange(p, p + len(xg), dtype=torch.float64, device=device) % 2) * 2 - 1
+        if yg is None:
+            yg = (torch.arange(p, p + len(xg), dtype=torch.float64, device=device) % 2) * 2 - 1
 
         if dtype is not None:
             xg, yg = xg.type(dtype), yg.type(dtype)
@@ -199,7 +283,7 @@ def orthogonal_(tensor, gain=1):
 
 class Model(nn.Module):
 
-    def __init__(self, d, h, depth, activation=F.relu, kappa=1):
+    def __init__(self, d, h, depth, activation=F.relu, kappa=1, n_classes=1):
         super().__init__()
 
         layers = nn.ModuleList()
@@ -214,7 +298,7 @@ class Model(nn.Module):
             layers += [lin]
             f = h
 
-        lin = nn.Linear(f, 1, bias=True)
+        lin = nn.Linear(f, n_classes, bias=True)
         orthogonal_(lin.weight, gain=kappa)
         nn.init.zeros_(lin.bias)
 
@@ -226,6 +310,7 @@ class Model(nn.Module):
         self.depth = depth
         self.activation = activation
         self.kappa = kappa
+        self.n_classes = n_classes
         self.preactivations = None
         self.N = sum(layer.weight.numel() for layer in self.layers)
 
@@ -237,17 +322,11 @@ class Model(nn.Module):
             self.preactivations.append(x)
             x = self.activation(x)
 
-        return self.layers[-1](x).view(-1)
-
-
-def gradient(output, inputs, retain_graph=None, create_graph=False):
-    if torch.is_tensor(inputs):
-        inputs = [inputs]
-    else:
-        inputs = list(inputs)
-    grads = torch.autograd.grad(output, inputs, allow_unused=True, retain_graph=retain_graph, create_graph=create_graph)
-    grads = [x if x is not None else torch.zeros_like(y) for x, y in zip(grads, inputs)]
-    return torch.cat([x.contiguous().view(-1) for x in grads])
+        x = self.layers[-1](x)
+        if self.n_classes == 1:
+            return x.view(-1)
+        else:
+            return x
 
 
 def expand_basis(basis, vectors, eps=1e-12):
@@ -310,7 +389,7 @@ def get_deltas(model, data_x, data_y):
     output = model(data_x)  # [p]
     model.preactivations = None  # free memory
     delta = model.kappa - output * data_y  # [p]
-    return delta
+    return delta.view(-1)
 
 
 def get_mistakes(model, data_x, data_y):
@@ -318,7 +397,10 @@ def get_mistakes(model, data_x, data_y):
         output = model(data_x)  # [p]
         model.preactivations = None  # free memory
         delta = model.kappa - output * data_y  # [p]
-        mask = (delta > 0)
+        if delta.ndimension() == 2:
+            mask = (delta > 0).any(1)
+        else:
+            mask = (delta > 0)
     return data_x[mask], data_y[mask]
 
 
@@ -391,10 +473,16 @@ def error_loss_grad(model, data_x, data_y):
     model.preactivations = None  # free memory
 
     delta = model.kappa - output * data_y  # [p]
-    loss = 0.5 * F.relu(delta).pow(2).mean()
+    if delta.ndimension() == 1:
+        loss = 0.5 * F.relu(delta).pow(2).mean()
+    else:
+        loss = 0.5 * F.relu(delta).pow(2).sum(1).mean()
     grad_sum_norm = gradient(loss, model.parameters()).norm().item()
 
-    return (delta > 0).long().sum().item(), loss.item(), grad_sum_norm, (delta > model.kappa).long().sum().item()
+    if delta.ndimension() == 1:
+        return (delta > 0).long().sum().item(), loss.item(), grad_sum_norm, (delta > model.kappa).long().sum().item()
+    else:
+        return (delta > 0).any(1).long().sum().item(), loss.item(), grad_sum_norm, output.argmax(1).eq(data_y.argmax(1)).long().sum().item()
 
 
 def make_a_step(model, optimizer, data_x, data_y):

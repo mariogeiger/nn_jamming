@@ -15,10 +15,10 @@ from fire import FIRE
 def parse():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--device", type=str)
     parser.add_argument("--log_dir", type=str, required=True)
 
-    parser.add_argument("--dataset", default="random")
+    parser.add_argument("--dataset", required=True)
     parser.add_argument("--dim", type=int, required=True)
     parser.add_argument("--p", type=int, required=True)
     parser.add_argument("--width", type=int, required=True)
@@ -50,6 +50,9 @@ def parse():
     parser.add_argument("--activation", choices={"relu", "tanh"}, default="relu")
 
     args = parser.parse_args()
+
+    if args.device is None:
+        args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     if args.optimizer == "adam_simple":
         if args.learning_rate is None:
@@ -152,9 +155,11 @@ def init(args):
 
     seed = torch.randint(2 ** 62, (), dtype=torch.long).item()
     trainset, testset = get_dataset(args.dataset, args.p, args.dim, seed, device, dtype)
+    _x, y = trainset
+    n_classes = 1 if y.ndimension() == 1 else y.size(1)
 
     activation = F.relu if args.activation == "relu" else torch.tanh
-    model = Model(args.dim, args.width, args.depth, activation, kappa=args.kappa)
+    model = Model(args.dim, args.width, args.depth, activation, kappa=args.kappa, n_classes=n_classes)
     model.to(device)
     model.type(dtype)
 
