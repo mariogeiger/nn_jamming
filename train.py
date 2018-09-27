@@ -20,7 +20,7 @@ def parse():
 
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--dim", type=int, required=True)
-    parser.add_argument("--p", type=int, required=True)
+    parser.add_argument("--p", type=parse_kmg, required=True)
     parser.add_argument("--width", type=int, required=True)
     parser.add_argument("--depth", type=int, required=True)
     parser.add_argument("--rep", type=int, default=0)
