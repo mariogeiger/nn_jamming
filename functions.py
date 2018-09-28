@@ -480,9 +480,9 @@ def error_loss_grad(model, data_x, data_y):
     grad_sum_norm = gradient(loss, model.parameters()).norm().item()
 
     if delta.ndimension() == 1:
-        return (delta > 0).long().sum().item(), loss.item(), grad_sum_norm, (delta > model.kappa).long().sum().item()
+        return (delta > 0).long().sum().item(), loss.item(), grad_sum_norm, (delta >= model.kappa).long().sum().item()
     else:
-        return (delta > 0).any(1).long().sum().item(), loss.item(), grad_sum_norm, output.argmax(1).eq(data_y.argmax(1)).long().sum().item()
+        return (delta > 0).any(1).long().sum().item(), loss.item(), grad_sum_norm, output.argmax(1).ne(data_y.argmax(1)).long().sum().item()
 
 
 def make_a_step(model, optimizer, data_x, data_y):
