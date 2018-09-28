@@ -136,14 +136,14 @@ def init(args):
     ch = logging.StreamHandler()
     logger.addHandler(ch)
     for i in count():
-        path_log = os.path.join(args.log_dir, "log_{}.py".format(i))
+        path_log = os.path.join(args.log_dir, "log_{:04d}".format(i))
         if not os.path.isfile(path_log):
             run_id = i
             fh = logging.FileHandler(path_log)
             break
     logger.addHandler(fh)
 
-    copyfile(__file__, os.path.join(args.log_dir, "script_{}.py".format(run_id)))
+    copyfile(__file__, os.path.join(args.log_dir, "script_{:04d}.py".format(run_id)))
 
     logger.info("%s", repr(args))
 
