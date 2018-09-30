@@ -570,7 +570,7 @@ def dump_run2(directory, run):
         index.append(run['desc'])
 
         with open(path, "wb") as f:
-            pickle.dump(index)
+            pickle.dump(index, f)
 
     with open(os.path.join(directory, "run_{:04d}.pkl".format(num)), "wb") as f:
         pickle.dump(run, f)
