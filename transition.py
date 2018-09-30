@@ -70,7 +70,9 @@ def main():
                 "rep": 0,
             }
 
-            run = next(run for run in load_dir(args.log_dir) if run['desc'] == desc)
+            num = next(i for i, desc_ in enumerate(load_dir_desc2(args.log_dir)) if desc_ == desc)
+            with open(os.path.join(args.log_dir, "run_{:04d}.pkl".format(num)), "rb") as f:
+                run = pickle.load(f)
 
             if run['last']['train'][0] > 0.1 * run['N']:
                 n_unsat += 1

@@ -519,10 +519,61 @@ def load_dir(directory):
                     break
 
 
+def load_dir2(directory):
+    with FSLocker(os.path.join(directory, "index.pkl.lock")):
+        path = os.path.join(directory, "index.pkl")
+        if not os.path.isfile(path):
+            return
+
+        with open(path, "rb") as f:
+            index = pickle.load(f)
+            
+    for num in range(len(index)):
+        with open(os.path.join(directory, "run_{:04d}.pkl".format(num)), "rb") as f:
+            yield pickle.load(f)
+
+
+def load_dir_desc(directory):
+    for run in load_dir(directory):
+        yield run['desc']
+
+
+def load_dir_desc2(directory):
+    with FSLocker(os.path.join(directory, "index.pkl.lock")):
+        path = os.path.join(directory, "index.pkl")
+        if not os.path.isfile(path):
+            return
+
+        with open(path, "rb") as f:
+            index = pickle.load(f)
+
+        for desc in index:
+            yield desc
+
+
 def dump_run(directory, run):
     with FSLocker(os.path.join(directory, "output.pkl.lock")):
         with open(os.path.join(directory, "output.pkl"), "ab") as f:
             pickle.dump(run, f)
+
+
+def dump_run2(directory, run):
+    with FSLocker(os.path.join(directory, "index.pkl.lock")):
+        path = os.path.join(directory, "index.pkl")
+        if os.path.isfile(path):
+            with open(path, "rb") as f:
+                index = pickle.load(f)
+        else:
+            index = []
+            
+        num = len(index)
+        index.append(run['desc'])
+
+        with open(path, "wb") as f:
+            pickle.dump(index)
+
+    with open(os.path.join(directory, "run_{:04d}.pkl".format(num)), "wb") as f:
+        pickle.dump(run, f)
 
 
 def copy_runs(src, dst):
@@ -530,6 +581,14 @@ def copy_runs(src, dst):
     for run in load_dir(src):
         if frozenset(run['desc'].items()) not in ds:
             dump_run(dst, run)
+            ds.add(frozenset(run['desc'].items()))
+
+
+def copy_runs2(src, dst):
+    ds = {frozenset(desc.items()) for desc in load_dir_desc2(dst)}
+    for run in load_dir2(src):
+        if frozenset(run['desc'].items()) not in ds:
+            dump_run2(dst, run)
             ds.add(frozenset(run['desc'].items()))
 
 

@@ -147,7 +147,7 @@ def init(args):
 
     logger.info("%s", repr(args))
 
-    if desc in [run['desc'] for run in load_dir(args.log_dir)]:
+    if desc in load_dir_desc2(args.log_dir):
         logger.info("{} skiped".format(repr(desc)))
         return None
 
@@ -364,7 +364,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
     run["last"]["state"] = model.cpu().state_dict()
 
-    dump_run(args.log_dir, run)
+    dump_run2(args.log_dir, run)
 
     logger.info(time_logging.text_statistics())
 
