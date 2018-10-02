@@ -111,11 +111,6 @@ def parse():
 
 
 def init(args):
-    torch.backends.cudnn.benchmark = True
-    device = torch.device(args.device)
-    dtype = torch.float32 if args.precision == "f32" else torch.float64
-    torch.set_default_dtype(dtype)
-
     try:
         os.mkdir(args.log_dir)
     except FileExistsError:
@@ -129,6 +124,15 @@ def init(args):
         "kappa": args.kappa,
         "rep": args.rep,
     }
+
+    if desc in load_dir_desc2(args.log_dir):
+        print("{} skiped".format(repr(desc)))
+        return None
+
+    torch.backends.cudnn.benchmark = True
+    device = torch.device(args.device)
+    dtype = torch.float32 if args.precision == "f32" else torch.float64
+    torch.set_default_dtype(dtype)
 
     logger = logging.getLogger("default")
     logger.setLevel(logging.DEBUG)
@@ -146,10 +150,6 @@ def init(args):
     copyfile(__file__, os.path.join(args.log_dir, "script_{:04d}.py".format(run_id)))
 
     logger.info("%s", repr(args))
-
-    if desc in load_dir_desc2(args.log_dir):
-        logger.info("{} skiped".format(repr(desc)))
-        return None
 
     logger.info(desc)
 
