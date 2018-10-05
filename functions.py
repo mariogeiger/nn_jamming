@@ -7,6 +7,7 @@ import pickle
 import os
 import numpy as np
 import fcntl
+import copy
 from hessian import gradient
 
 
@@ -361,7 +362,7 @@ def expand_basis(basis, vectors, eps=1e-12):
 def n_effective(f, x, n_derive=1):
     assert x.dtype == torch.float64
 
-    basis = expand_basis(None, (gradient(o, f.parameters(), retain_graph=True) for o in f(x)))
+    basis = expand_basis(None, (gradient(o, f.parameters(), retain_graph=True) for o in f(x).view(-1)))
 
     if n_derive <= 0:
         return basis.size(0)
@@ -371,12 +372,14 @@ def n_effective(f, x, n_derive=1):
             a = torch.tensor(i, requires_grad=True)
             fx = f(a)
 
-            for k in range(n_derive):
-                u = i.clone().normal_()
-                fx = gradient(fx, a, create_graph=True) @ u
-                if fx.grad_fn is None: break  # the derivative is strictly zero
+            for fxo in fx.view(-1):
 
-                yield gradient(fx, f.parameters(), retain_graph=(k < n_derive - 1))
+                for k in range(n_derive):
+                    u = i.clone().normal_()
+                    fxo = gradient(fxo, a, create_graph=True) @ u
+                    if fxo.grad_fn is None: break  # the derivative is strictly zero
+
+                    yield gradient(fxo, f.parameters(), retain_graph=(k < n_derive - 1))
 
     while True:
         ws = expand_basis(basis, it())
@@ -592,16 +595,25 @@ def copy_runs2(src, dst):
             ds.add(frozenset(run['desc'].items()))
 
 
-def load_run(run, device=None):
-    device = torch.device(run['args'].device) if device is None else device
+def load_run(run):
+    device = torch.device(run['args'].device)
+    dtype = torch.float32 if run['args'].precision == "f32" else torch.float64
+    torch.set_default_dtype(dtype)
 
-    trainset, testset = get_dataset(run['args'].dataset, run['desc']['p'], run['desc']['dim'], run['seed'], device)
+    trainset, testset = get_dataset(run['args'].dataset, run['desc']['p'], run['desc']['dim'], run['seed'], device, dtype)
+    _x, y = trainset
+    n_classes = 1 if y.ndimension() == 1 else y.size(1)
 
-    model = Model(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], kappa=run['desc']['kappa'])
-    model.load_state_dict(run['last']['state'])
-    model.to(device)
+    activation = F.relu if run['args'].activation == "relu" else torch.tanh
+    model_init = Model(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], activation, kappa=run['desc']['kappa'], n_classes=n_classes)
+    model_init.type(dtype)
 
-    return model, trainset, testset
+    model_last = copy.deepcopy(model_init)
+    model_last.load_state_dict(run['last']['state'])
+
+    model_init.to(device)
+    model_last.to(device)
+    return model_init, model_last, trainset, testset
 
 
 def simplify(stuff):
