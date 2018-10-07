@@ -32,6 +32,7 @@ def parse():
     parser.add_argument("--save_hessian", type=to_bool, default="False")
     parser.add_argument("--checkpoints", type=int, nargs='+', default=[])
     parser.add_argument("--nd_stop", type=int, default=0)
+    parser.add_argument("--losspp_stop", type=int, default=0)
 
     parser.add_argument("--kappa", type=float, default=1)
 
@@ -249,6 +250,9 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
             time_1 = time_logging.end("error and loss", time_1)
 
             if data['train'][0] <= args.nd_stop:  # with the hinge, no errors => finished
+                break
+
+            if data['train'][1] * args.p < args.losspp_stop * data['train'][0]:
                 break
 
         if step in args.checkpoints:
