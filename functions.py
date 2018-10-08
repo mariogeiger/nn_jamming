@@ -490,17 +490,18 @@ def error_loss_grad(model, data_x, data_y):
         delta = model.kappa - output * data_y[i: i + 1024]  # [p, ?]
 
         if delta.ndimension() == 1:
-            loss += 0.5 * F.relu(delta).pow(2).sum() / len(data_x)
+            l = 0.5 * F.relu(delta).pow(2).sum() / len(data_x)
             cons += (delta > 0).long().sum().item()
             erro += (delta >= model.kappa).long().sum().item()
         else:
-            loss += 0.5 * F.relu(delta).pow(2).sum(1).sum() / len(data_x)
+            l = 0.5 * F.relu(delta).pow(2).sum(1).sum() / len(data_x)
             cons += (delta > 0).any(1).long().sum().item()
             erro += output.argmax(1).ne(data_y.argmax(1)).long().sum().item()
 
-        grad += gradient(loss, model.parameters()).detach()
+        grad += gradient(l, model.parameters()).detach()
+        loss += l.item()
 
-    return cons, loss.item(), grad.norm().item(), erro
+    return cons, loss, grad.norm().item(), erro
 
 
 def make_a_step(model, optimizer, data_x, data_y):
