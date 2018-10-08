@@ -25,7 +25,7 @@ def main():
     if args.launcher == "gpurun":
         command = "gpurun "
     if args.launcher == "srun":
-        command = "srun --partition gpu --qos gpu --gres gpu:1 --time 3-00:00:00 --mem 16G "
+        command = "srun --partition gpu --qos gpu --gres gpu:1 --time 3-00:00:00 --mem 12G "
 
     command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{dim}} --width {{width}} --depth {{depth}} --rep {{rep}} {args}".format(
         log_dir=args.log_dir, args=args.args)
