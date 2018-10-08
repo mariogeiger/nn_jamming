@@ -518,7 +518,7 @@ def make_a_step(model, optimizer, data_x, data_y):
     optimizer.zero_grad()
 
     total_loss = 0
-    for i in range(0, len(data_x), 1024):
+    for i in range(0, len(mist_x), 1024):
         deltas = get_deltas(model, mist_x[i: i + 1024], mist_y[i: i + 1024])
         loss = 0.5 * deltas.pow(2).sum() / data_x.size(0)
         total_loss += loss.item()
