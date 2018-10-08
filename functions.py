@@ -397,12 +397,15 @@ def get_deltas(model, data_x, data_y):
 
 def get_mistakes(model, data_x, data_y):
     with torch.no_grad():
-        output = model(data_x)  # [p]
-        delta = model.kappa - output * data_y  # [p]
-        if delta.ndimension() == 2:
-            mask = (delta > 0).any(1)
-        else:
-            mask = (delta > 0)
+        mask = []
+        for i in range(0, len(data_x), 1024):
+            output = model(data_x[i: i + 1024])  # [p]
+            delta = model.kappa - output * data_y[i: i + 1024]  # [p]
+            if delta.ndimension() == 2:
+                mask.append((delta > 0).any(1))
+            else:
+                mask.append(delta > 0)
+        mask = torch.cat(mask)
     return data_x[mask], data_y[mask]
 
 
@@ -452,8 +455,13 @@ def compute_hessian(model, data_x, data_y):
         H = data_x.new_zeros(Ntot, Ntot)
         return H, H
 
-    deltas = get_deltas(model, mist_x, mist_y)
-    return compute_h0(model, deltas) / p, compute_hp(model, deltas) / p
+    h0, hp = 0, 0
+    for i in range(0, len(mist_x), 1024):
+        deltas = get_deltas(model, mist_x[i: i + 1024], mist_y[i: i + 1024])
+        h0 += compute_h0(model, deltas) / p
+        hp += compute_hp(model, deltas) / p
+
+    return h0, hp
 
 
 def compute_hessian_evalues(model, data_x, data_y):
@@ -471,20 +479,28 @@ def compute_hessian_evalues(model, data_x, data_y):
 
 def error_loss_grad(model, data_x, data_y):
     model.eval()
+    
+    cons = 0
+    loss = 0
+    grad = 0
+    erro = 0
 
-    output = model(data_x)  # [p]
+    for i in range(0, len(data_x), 1024):
+        output = model(data_x[i: i + 1024])  # [p, ?]
+        delta = model.kappa - output * data_y[i: i + 1024]  # [p, ?]
 
-    delta = model.kappa - output * data_y  # [p]
-    if delta.ndimension() == 1:
-        loss = 0.5 * F.relu(delta).pow(2).mean()
-    else:
-        loss = 0.5 * F.relu(delta).pow(2).sum(1).mean()
-    grad_sum_norm = gradient(loss, model.parameters()).norm().item()
+        if delta.ndimension() == 1:
+            loss += 0.5 * F.relu(delta).pow(2).sum() / len(data_x)
+            cons += (delta > 0).long().sum().item()
+            erro += (delta >= model.kappa).long().sum().item()
+        else:
+            loss += 0.5 * F.relu(delta).pow(2).sum(1).sum() / len(data_x)
+            cons += (delta > 0).any(1).long().sum().item()
+            erro += output.argmax(1).ne(data_y.argmax(1)).long().sum().item()
 
-    if delta.ndimension() == 1:
-        return (delta > 0).long().sum().item(), loss.item(), grad_sum_norm, (delta >= model.kappa).long().sum().item()
-    else:
-        return (delta > 0).any(1).long().sum().item(), loss.item(), grad_sum_norm, output.argmax(1).ne(data_y.argmax(1)).long().sum().item()
+        grad += gradient(loss, model.parameters()).detach()
+
+    return cons, loss.item(), grad.norm().item(), erro
 
 
 def make_a_step(model, optimizer, data_x, data_y):
@@ -494,18 +510,21 @@ def make_a_step(model, optimizer, data_x, data_y):
     '''
     model.train()
 
-    mist = get_mistakes(model, data_x, data_y)
-    if mist[0].size(0) == 0:
+    mist_x, mist_y = get_mistakes(model, data_x, data_y)
+    if mist_x.size(0) == 0:
         return 0
 
-    deltas = get_deltas(model, *mist)
-    loss = 0.5 * deltas.pow(2).sum() / data_x.size(0)
-
     optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
 
-    return loss.item()
+    total_loss = 0
+    for i in range(0, len(data_x), 1024):
+        deltas = get_deltas(model, mist_x[i: i + 1024], mist_y[i: i + 1024])
+        loss = 0.5 * deltas.pow(2).sum() / data_x.size(0)
+        total_loss += loss.item()
+        loss.backward()
+
+    optimizer.step()
+    return total_loss
 
 
 def load_dir(directory):
