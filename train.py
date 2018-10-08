@@ -32,7 +32,7 @@ def parse():
     parser.add_argument("--save_hessian", type=to_bool, default="False")
     parser.add_argument("--checkpoints", type=int, nargs='+', default=[])
     parser.add_argument("--nd_stop", type=int, default=0)
-    parser.add_argument("--losspp_stop", type=int, default=0)
+    parser.add_argument("--losspp_stop", type=float, default=0)
 
     parser.add_argument("--kappa", type=float, default=1)
 
