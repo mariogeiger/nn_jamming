@@ -316,11 +316,12 @@ class Model(nn.Module):
         self.N = sum(layer.weight.numel() for layer in self.layers)
 
     def forward(self, x):
-        self.preactivations = []
+        assert self.preactivations is None or self.preactivations == []
 
         for layer in self.layers[:-1]:
             x = layer(x)
-            self.preactivations.append(x)
+            if self.preactivations is not None:
+                self.preactivations.append(x)
             x = self.activation(x)
 
         x = self.layers[-1](x)
@@ -390,7 +391,6 @@ def n_effective(f, x, n_derive=1):
 
 def get_deltas(model, data_x, data_y):
     output = model(data_x)  # [p]
-    model.preactivations = None  # free memory
     delta = model.kappa - output * data_y  # [p]
     return delta.view(-1)
 
@@ -398,7 +398,6 @@ def get_deltas(model, data_x, data_y):
 def get_mistakes(model, data_x, data_y):
     with torch.no_grad():
         output = model(data_x)  # [p]
-        model.preactivations = None  # free memory
         delta = model.kappa - output * data_y  # [p]
         if delta.ndimension() == 2:
             mask = (delta > 0).any(1)
@@ -411,6 +410,7 @@ def get_activities(model, data_x):
     model.eval()
 
     with torch.no_grad():
+        model.preactivations = []
         model(data_x)
 
         activities = torch.stack([
@@ -473,7 +473,6 @@ def error_loss_grad(model, data_x, data_y):
     model.eval()
 
     output = model(data_x)  # [p]
-    model.preactivations = None  # free memory
 
     delta = model.kappa - output * data_y  # [p]
     if delta.ndimension() == 1:
