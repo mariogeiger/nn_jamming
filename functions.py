@@ -482,8 +482,9 @@ def error_loss_grad(model, data_x, data_y):
     
     cons = 0
     loss = 0
-    grad = 0
     erro = 0
+
+    model.zero_grad()
 
     for i in range(0, len(data_x), 1024):
         output = model(data_x[i: i + 1024])  # [p, ?]
@@ -498,10 +499,11 @@ def error_loss_grad(model, data_x, data_y):
             cons += (delta > 0).any(1).long().sum().item()
             erro += output.argmax(1).ne(data_y.argmax(1)).long().sum().item()
 
-        grad += gradient(l, model.parameters()).detach()
+        l.backward()
         loss += l.item()
 
-    return cons, loss, grad.norm().item(), erro
+    grad_norm = sum(p.pow(2).sum() for p in model.parameters()).pow(0.5).item()
+    return cons, loss, grad_norm, erro
 
 
 def make_a_step(model, optimizer, data_x, data_y):
