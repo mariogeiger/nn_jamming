@@ -395,12 +395,15 @@ def get_deltas(model, data_x, data_y):
     return delta.view(-1)
 
 
-def get_mistakes(model, data_x, data_y):
+def get_mistakes(model, data_x, data_y, chunk=None):
+    if chunk is None:
+        chunk = len(data_x)
+
     with torch.no_grad():
         mask = []
-        for i in range(0, len(data_x), 1024):
-            output = model(data_x[i: i + 1024])  # [p]
-            delta = model.kappa - output * data_y[i: i + 1024]  # [p]
+        for i in range(0, len(data_x), chunk):
+            output = model(data_x[i: i + chunk])  # [p]
+            delta = model.kappa - output * data_y[i: i + chunk]  # [p]
             if delta.ndimension() == 2:
                 mask.append((delta > 0).any(1))
             else:
@@ -425,41 +428,46 @@ def get_activities(model, data_x):
     return activities
 
 
-def compute_h0(model, deltas):
+def compute_h0(model, deltas, out=None):
     '''
     Compute extensive H0
     '''
     Ntot = sum(p.numel() for p in model.parameters())
-    H0 = deltas.new_zeros(Ntot, Ntot)  # da Delta_i db Delta_i
+    if out is None:
+        out = deltas.new_zeros(Ntot, Ntot)  # da Delta_i db Delta_i
+
     for delta in deltas:
         g = gradient(delta, model.parameters(), retain_graph=True)
-        H0.add_(g.view(-1, 1) * g.view(1, -1))
-    return H0
+        out.add_(g.view(-1, 1) * g.view(1, -1))
+    return out
 
 
-def compute_hp(model, deltas):
+def compute_hp(model, deltas, out=None):
     '''
     Compute extensive Hp
     '''
     from hessian import hessian
-    return hessian((deltas.detach() * deltas).sum(), model.parameters())  # Delta_i da db Delta_i
+    return hessian((deltas.detach() * deltas).sum(), model.parameters(), out=out)  # Delta_i da db Delta_i
 
 
 def compute_hessian(model, data_x, data_y):
     model.eval()
     p = len(data_x)
     Ntot = sum(p.numel() for p in model.parameters())
+    H = data_x.new_zeros(Ntot, Ntot)
 
-    mist_x, mist_y = get_mistakes(model, data_x, data_y)
+    mist_x, mist_y = get_mistakes(model, data_x, data_y, 1024)
     if len(mist_x) == 0:
-        H = data_x.new_zeros(Ntot, Ntot)
         return H, H
 
-    h0, hp = 0, 0
+    h0, hp = H, H.clone()
     for i in range(0, len(mist_x), 1024):
         deltas = get_deltas(model, mist_x[i: i + 1024], mist_y[i: i + 1024])
-        h0 += compute_h0(model, deltas) / p
-        hp += compute_hp(model, deltas) / p
+        compute_h0(model, deltas, out=h0)
+        compute_hp(model, deltas, out=hp)
+
+    h0.div_(p)
+    hp.div_(p)
 
     return h0, hp
 
@@ -506,22 +514,25 @@ def error_loss_grad(model, data_x, data_y):
     return cons, loss, grad_norm, erro
 
 
-def make_a_step(model, optimizer, data_x, data_y):
+def make_a_step(model, optimizer, data_x, data_y, chunk=None):
     '''
     data_x [batch, k] (?, dim)
     data_y [batch, class] (?,)
     '''
     model.train()
 
-    mist_x, mist_y = get_mistakes(model, data_x, data_y)
+    if chunk is None:
+        chunk = len(data_x)
+
+    mist_x, mist_y = get_mistakes(model, data_x, data_y, chunk)
     if mist_x.size(0) == 0:
         return 0
 
     optimizer.zero_grad()
 
     total_loss = 0
-    for i in range(0, len(mist_x), 1024):
-        deltas = get_deltas(model, mist_x[i: i + 1024], mist_y[i: i + 1024])
+    for i in range(0, len(mist_x), chunk):
+        deltas = get_deltas(model, mist_x[i: i + chunk], mist_y[i: i + chunk])
         loss = 0.5 * deltas.pow(2).sum() / data_x.size(0)
         total_loss += loss.item()
         loss.backward()

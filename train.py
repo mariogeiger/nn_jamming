@@ -48,6 +48,7 @@ def parse():
     parser.add_argument("--bs_grow_factor", type=float)
 
     parser.add_argument("--precision", choices={"f32", "f64"}, default="f64")
+    parser.add_argument("--chunk", type=int)
     parser.add_argument("--activation", choices={"relu", "tanh"}, default="relu")
 
     args = parser.parse_args()
@@ -107,6 +108,9 @@ def parse():
             args.learning_rate = 1e-2
         if args.batch_size is None:
             args.batch_size = args.p
+
+    if args.chunk is None:
+        args.chunk = args.p
 
     return args
 
@@ -303,7 +307,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         data, target = next(loader)
         time_1 = time_logging.end("load data", time_1)
 
-        make_a_step(model, optimizer, data, target)
+        make_a_step(model, optimizer, data, target, args.chunk)
 
         time_1 = time_logging.end("make a step", time_1)
 
