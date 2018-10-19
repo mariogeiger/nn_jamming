@@ -25,7 +25,7 @@ def parse():
     parser.add_argument("--depth", type=int, required=True)
     parser.add_argument("--rep", type=int, default=0)
 
-    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple"}, required=True)
+    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple", "fdr"}, required=True)
     parser.add_argument("--n_steps_max", type=parse_kmg, required=True)
     parser.add_argument("--compute_hessian", type=to_bool, default="True")
     parser.add_argument("--compute_neff", type=to_bool, default="True")
@@ -38,6 +38,7 @@ def parse():
 
     parser.add_argument("--learning_rate", type=float)
     parser.add_argument("--n_steps_lr_decay", type=int)
+    parser.add_argument("--fdr_epoch", type=int)
     parser.add_argument("--lr_decay_factor", type=float)
     parser.add_argument("--min_learning_rate", type=float)
     parser.add_argument("--rlrop_cooldown", type=float)
@@ -56,6 +57,15 @@ def parse():
     if args.device is None:
         args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+    if args.optimizer == "fdr":
+        if args.learning_rate is None:
+            args.learning_rate = 1e-2
+        if args.batch_size is None:
+            args.batch_size = args.p
+        if args.lr_decay_factor is None:
+            args.lr_decay_factor = 1 / 0.9
+        if args.fdr_epoch is None:
+            args.fdr_epoch = 500
     if args.optimizer == "adam_simple":
         if args.learning_rate is None:
             args.learning_rate = 1e-4
@@ -171,7 +181,7 @@ def init(args):
     print("N={}".format(model.N))
 
     scheduler = None
-    if args.optimizer == "sgd":
+    if args.optimizer == "sgd" or args.optimizer == "fdr":
         optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=0)
     if args.optimizer == "adam" or args.optimizer == "adam0" or args.optimizer == "adam_simple":
         optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
@@ -197,6 +207,9 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
     bins = np.logspace(-9, 4, 130)
     bins = np.concatenate([[-1], bins])
+
+    fluctuation = 0
+    dissipation = 0
 
     step = 0
     while True:
@@ -308,6 +321,43 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         time_1 = time_logging.end("load data", time_1)
 
         make_a_step(model, optimizer, data, target, args.chunk)
+
+        if args.optimizer == "fdr":
+            fluctuation += sum(torch.dot(p.view(-1), p.grad.view(-1)) for p in model.parameters()).item()
+
+            assert len(optimizer.param_groups) == 1
+            group = optimizer.param_groups[0]
+            weight_decay = group['weight_decay']
+            momentum = group['momentum']
+            dampening = group['dampening']
+            nesterov = group['nesterov']
+            lr = group['lr']
+
+            assert weight_decay == 0
+            assert nesterov == False
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+
+                if momentum != 0:
+                    param_state = optimizer.state[p]
+                    v = param_state['momentum_buffer']
+                    dissipation += 0.5 * (1 + momentum) / (1 - dampening) * lr * v.norm() ** 2
+                else:
+                    v = p.grad
+                    dissipation += 0.5 * lr * v.norm() ** 2
+
+            if step > 0 and step % args.fdr_epoch == 0:
+                fluctuation /= args.fdr_epoch
+                dissipation /= args.fdr_epoch
+                logger.info("({}|{}) fluctuation = {}, dissipation = {}".format(run_id, desc['p'], fluctuation, dissipation))
+                if abs(fluctuation / dissipation - 1) < 0.01:
+                    group['lr'] = lr / args.lr_decay_factor
+                    logger.info("({}|{}) learning rate set to {}".format(run_id, desc['p'], group['lr']))
+
+                fluctuation = 0
+                dissipation = 0
 
         time_1 = time_logging.end("make a step", time_1)
 
