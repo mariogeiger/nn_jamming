@@ -46,14 +46,14 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
             transform = torchvision.transforms.Compose([
                 torchvision.transforms.Resize(w),
                 torchvision.transforms.ToTensor(),
-                lambda x: x.view(-1).type(torch.float64)
+                lambda x: x.type(torch.float64)
             ])
         elif dataset == "mnist_pca":
             m, v, e = torch.load('../mnist/pca.pkl')
             assert dim <= (e > 0).long().sum().item()
             transform = torchvision.transforms.Compose([
                 torchvision.transforms.ToTensor(),
-                lambda x: x.view(-1).type(torch.float64),
+                lambda x: x.type(torch.float64),
                 lambda x: (x - m) @ v[:, :dim] / e[:dim] ** 0.5,
             ])
         else:
@@ -90,7 +90,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
         assert dim == 3 * 32 * 32
         transform = torchvision.transforms.Compose([
             torchvision.transforms.ToTensor(),
-            lambda x: x.view(-1).type(torch.float64)
+            lambda x: x.type(torch.float64)
         ])
 
         trainset = torchvision.datasets.CIFAR100('../cifar100', train=True, download=True, transform=transform)
@@ -128,7 +128,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
         assert dim == 3 * 32 * 32
         transform = torchvision.transforms.Compose([
             torchvision.transforms.ToTensor(),
-            lambda x: x.view(-1).type(torch.float64)
+            lambda x: x.type(torch.float64)
         ])
 
         trainset = torchvision.datasets.CIFAR10('../cifar10', train=True, download=True, transform=transform)
@@ -159,28 +159,33 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
         xg = x[p:].to(device)
         x = x[:p].to(device)
 
-    elif dataset.startswith("cifar"):
+    elif dataset.startswith("cifar2"):
         import torchvision
         from itertools import chain
 
-        if dataset == "cifar_scale":
+        if dataset == "cifar2_scale":
             w = int((dim / 3) ** 0.5)
             assert dim == 3 * w * w
             transform = torchvision.transforms.Compose([
                 torchvision.transforms.Resize(w),
                 torchvision.transforms.ToTensor(),
-                lambda x: x.view(-1).type(torch.float64)
+                lambda x: x.type(torch.float64)
             ])
-        elif dataset == "cifar_scale_gray":
+        elif dataset == "cifar2":
+            transform = torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor(),
+                lambda x: x.type(torch.float64)
+            ])
+        elif dataset == "cifar2_scale_gray":
             w = int(dim ** 0.5)
             assert dim == w * w
             transform = torchvision.transforms.Compose([
                 torchvision.transforms.Resize(w),
                 torchvision.transforms.Grayscale(),
                 torchvision.transforms.ToTensor(),
-                lambda x: x.view(-1).type(torch.float64)
+                lambda x: x.type(torch.float64)
             ])
-        elif dataset == "cifar_orth_proj":
+        elif dataset == "cifar2_orth_proj":
             proj = torch.empty(dim, 3 * 32 ** 2, dtype=torch.float64)
             orthogonal_(proj)
 
@@ -188,7 +193,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
                 torchvision.transforms.ToTensor(),
                 lambda x: proj @ x.view(-1).type(torch.float64)
             ])
-        elif dataset == "cifar_pca":
+        elif dataset == "cifar2_pca":
             m, v, e = torch.load('../cifar10/pca.pkl')
             assert dim <= (e > 0).long().sum().item()
             transform = torchvision.transforms.Compose([
@@ -196,7 +201,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
                 lambda x: x.view(-1).type(torch.float64),
                 lambda x: (x - m) @ v[:, :dim] / e[:dim] ** 0.5,
             ])
-        elif dataset == "cifar_pca_rot":
+        elif dataset == "cifar2_pca_rot":
             m, v, e = torch.load('../cifar10/pca.pkl')
             assert dim <= (e > 0).long().sum().item()
             proj = torch.empty(dim, dim, dtype=torch.float64)
@@ -238,7 +243,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
         raise ValueError("unknown dataset")
 
     x = x - x.mean(0)
-    x = dim ** 0.5 * x / x.norm(dim=1, keepdim=True)
+    x = x.flatten(1).size(1) ** 0.5 * x / x.flatten(1).norm(dim=1).view(-1, *(1,) * (x.ndimension() - 1))
     if y is None:
         y = (torch.arange(p, dtype=torch.float64, device=device) % 2) * 2 - 1
 
@@ -247,7 +252,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
 
     if xg is not None and len(x) > 0:
         xg = xg - xg.mean(0)
-        xg = dim ** 0.5 * xg / xg.norm(dim=1, keepdim=True)
+        xg = xg.flatten(1).size(1) ** 0.5 * xg / xg.flatten(1).norm(dim=1).view(-1, *(1,) * (x.ndimension() - 1))
         if yg is None:
             yg = (torch.arange(p, p + len(xg), dtype=torch.float64, device=device) % 2) * 2 - 1
 
@@ -282,7 +287,7 @@ def orthogonal_(tensor, gain=1):
     return tensor
 
 
-class Model(nn.Module):
+class FC(nn.Module):
 
     def __init__(self, d, h, depth, activation=F.relu, kappa=1, n_classes=1):
         super().__init__()
@@ -325,6 +330,51 @@ class Model(nn.Module):
             x = self.activation(x)
 
         x = self.layers[-1](x)
+        if self.n_classes == 1:
+            return x.view(-1)
+        else:
+            return x
+
+
+class CNN(nn.Module):
+
+    def __init__(self, d, h, act, kappa=1, n_classes=1):
+        super().__init__()
+
+        self.layers = nn.ModuleList([
+            nn.Conv2d(d, h, 5), 
+            nn.Conv2d(h, h, 3, stride=2),
+            nn.Conv2d(h, h, 3),
+            nn.Conv2d(h, h, 3, stride=2),
+            nn.Conv2d(h, n_classes, 3)
+        ])
+        
+        for name, p in self.layers.named_parameters():
+            if 'weight' in name:
+                orthogonal_(p)
+            if 'bias' in name:
+                nn.init.zeros_(p)
+                
+        self.act = act
+        self.n_classes = n_classes
+        self.kappa = kappa
+
+        self.preactivations = None
+        self.N = sum(p.numel() for p in self.parameters())
+    
+    def forward(self, x):
+        assert self.preactivations is None or self.preactivations == []
+
+        for layer in self.layers[:-1]:
+            x = layer(x)
+            if self.preactivations is not None:
+                self.preactivations.append(x)
+            x = self.act(x)
+
+        x = self.layers[-1](x)
+        
+        x = x.flatten(2).mean(2)
+        
         if self.n_classes == 1:
             return x.view(-1)
         else:
@@ -637,7 +687,7 @@ def load_run(run):
     n_classes = 1 if y.ndimension() == 1 else y.size(1)
 
     activation = F.relu if run['args'].activation == "relu" else torch.tanh
-    model_init = Model(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], activation, kappa=run['desc']['kappa'], n_classes=n_classes)
+    model_init = FC(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], activation, kappa=run['desc']['kappa'], n_classes=n_classes)
     model_init.type(dtype)
 
     model_last = copy.deepcopy(model_init)

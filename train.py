@@ -10,6 +10,7 @@ import numpy as np
 import time_logging
 from functions import *
 from fire import FIRE
+import collections
 
 
 def parse():
@@ -19,10 +20,11 @@ def parse():
     parser.add_argument("--log_dir", type=str, required=True)
 
     parser.add_argument("--dataset", required=True)
+    parser.add_argument("--architecture", choices={"fc", "cnn"}, required=True)
     parser.add_argument("--dim", type=int, required=True)
     parser.add_argument("--p", type=parse_kmg, required=True)
     parser.add_argument("--width", type=int, required=True)
-    parser.add_argument("--depth", type=int, required=True)
+    parser.add_argument("--depth", type=int)
     parser.add_argument("--rep", type=int, default=0)
 
     parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple", "fdr"}, required=True)
@@ -56,6 +58,11 @@ def parse():
 
     if args.device is None:
         args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    if args.architecture == "fc":
+        assert args.depth is not None
+    if args.architecture == "cnn":
+        assert args.depth is None
 
     if args.optimizer == "fdr":
         if args.learning_rate is None:
@@ -174,7 +181,14 @@ def init(args):
     n_classes = 1 if y.ndimension() == 1 else y.size(1)
 
     activation = F.relu if args.activation == "relu" else torch.tanh
-    model = Model(args.dim, args.width, args.depth, activation, kappa=args.kappa, n_classes=n_classes)
+    if args.architecture == "fc":
+        trainset = (trainset[0].flatten(1), trainset[1])
+        testset = (testset[0].flatten(1), testset[1])
+        model = FC(args.dim, args.width, args.depth, activation, kappa=args.kappa, n_classes=n_classes)
+    if args.architecture == "cnn":
+        assert trainset[0].ndimension() == 4
+        assert testset[0].ndimension() == 4
+        model = CNN(args.dim, args.width, activation, kappa=args.kappa, n_classes=n_classes)
     model.to(device)
     model.type(dtype)
 
@@ -237,6 +251,11 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
             )
             if testset is not None:
                 data['test'] = error_loss_grad(model, *testset)
+
+
+            data['state'] = {
+                "norm": collections.OrderedDict([(n, p.norm().item()) for n, p in model.named_parameters()])
+            }
 
             if args.optimizer == "adam_rlrop":
                 scheduler.step(data['train'][1])
