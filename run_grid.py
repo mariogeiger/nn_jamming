@@ -13,21 +13,19 @@ def main():
     parser.add_argument("--n_parallel", type=int, default=1)
     parser.add_argument("--dim", type=int, nargs='+', required=True)
     parser.add_argument("--width", type=int, nargs='+', required=True)
-    parser.add_argument("--depth", type=int, nargs='+', required=True)
+    parser.add_argument("--depth", type=int, nargs='+')
     parser.add_argument("--p", type=str, nargs='+', required=True)
     parser.add_argument("--rep", type=int, nargs='+', default=[0])
     parser.add_argument("--args", type=str, default="")
-    parser.add_argument("--launcher", type=str, default="gpurun")
+    parser.add_argument("--launcher", type=str, default="")  # srun --partition gpu --qos gpu --gres gpu:1 --time 3-00:00:00 --mem 12G
 
     args = parser.parse_args()
 
-    command = ""
-    if args.launcher == "gpurun":
-        command = "gpurun "
-    if args.launcher == "srun":
-        command = "srun --partition gpu --qos gpu --gres gpu:1 --time 3-00:00:00 --mem 12G "
+    if args.depth is None:
+        args.depth = [None]
 
-    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{dim}} --width {{width}} --depth {{depth}} --rep {{rep}} {args}".format(
+    command = "{} ".format(args.launcher)
+    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{dim}} --width {{width}} --rep {{rep}} {args}".format(
         log_dir=args.log_dir, args=args.args)
 
     running = []
@@ -39,7 +37,11 @@ def main():
         if os.path.isfile("stop"):
             break
 
-        cmd = command.format(p=p, dim=dim, width=width, depth=depth, rep=rep)
+        cmd = command.format(p=p, dim=dim, width=width, rep=rep)
+
+        if depth:
+            cmd += " --depth {}".format(depth)
+
         running.append(subprocess.Popen(cmd.split()))
         print(cmd)
         time.sleep(2)
