@@ -266,7 +266,8 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
                 'param_groups': simplify(optimizer.param_groups),
             }
 
-            deltas = get_deltas(model, *trainset)
+            with torch.no_grad():
+                deltas = get_deltas(model, *trainset)
             h_pos = None
             if data['train'][1] > 0:
                 x = deltas.clone()
