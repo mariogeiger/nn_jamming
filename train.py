@@ -267,7 +267,11 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
             }
 
             with torch.no_grad():
-                deltas = get_deltas(model, *trainset)
+                x, y = trainset
+                deltas = torch.cat([
+                    get_deltas(model, x[i: i + 1024], y[i: i + 1024])
+                    for i in range(0, len(x), 1024)
+                ])
             h_pos = None
             if data['train'][1] > 0:
                 x = deltas.clone()
