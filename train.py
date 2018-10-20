@@ -183,7 +183,8 @@ def init(args):
     activation = F.relu if args.activation == "relu" else torch.tanh
     if args.architecture == "fc":
         trainset = (trainset[0].flatten(1), trainset[1])
-        testset = (testset[0].flatten(1), testset[1])
+        if testset is not None:
+            testset = (testset[0].flatten(1), testset[1])
         model = FC(args.dim, args.width, args.depth, activation, kappa=args.kappa, n_classes=n_classes)
     if args.architecture == "cnn":
         assert trainset[0].ndimension() == 4
@@ -217,7 +218,6 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
     time_1 = time_logging.start()
 
     batch_size = args.batch_size
-    loader = simple_loader(*trainset, batch_size)
 
     bins = np.logspace(-9, 4, 130)
     bins = np.concatenate([[-1], bins])
@@ -334,13 +334,11 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
         if args.n_steps_bs_grow and step > 0 and step % args.n_steps_bs_grow == 0:
             batch_size = min(args.p, int(batch_size * args.bs_grow_factor))
-            loader = simple_loader(*trainset, batch_size)
             logger.info("({}|{}) batch size set to {}".format(run_id, desc['p'], batch_size))
 
-        data, target = next(loader)
         time_1 = time_logging.end("load data", time_1)
 
-        make_a_step(model, optimizer, data, target, args.chunk)
+        make_a_step(model, optimizer, *trainset, batch_size)
 
         if args.optimizer == "fdr":
             fluctuation += sum(torch.dot(p.view(-1), p.grad.view(-1)) for p in model.parameters()).item()
