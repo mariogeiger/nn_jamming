@@ -267,11 +267,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
             }
 
             with torch.no_grad():
-                x, y = trainset
-                deltas = torch.cat([
-                    get_deltas(model, x[i: i + 1024], y[i: i + 1024])
-                    for i in range(0, len(x), 1024)
-                ])
+                deltas = get_deltas(model, *trainset, 1024)
             h_pos = None
             if data['train'][1] > 0:
                 x = deltas.clone()
@@ -315,7 +311,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
                 time_1 = time_logging.end("hessian", time_1)
 
             with torch.no_grad():
-                deltas = get_deltas(model, *trainset)
+                deltas = get_deltas(model, *trainset, 1024)
             error_loss = error_loss_grad(model, *trainset)
 
             checkpoints.append({
@@ -401,7 +397,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
     error_loss = error_loss_grad(model, *trainset)
     with torch.no_grad():
-        deltas = get_deltas(model, *trainset)
+        deltas = get_deltas(model, *trainset, 1024)
 
     run["last"] = {
         "train": error_loss,
@@ -419,7 +415,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
     if testset is not None:
         run['last']['test'] = error_loss_grad(model, *testset)
         with torch.no_grad():
-            deltas_test = get_deltas(model, *testset)
+            deltas_test = get_deltas(model, *testset, 1024)
         run['last']["deltas_test"] = deltas_test.cpu(),
         run['p_test'] = len(testset[0])
 

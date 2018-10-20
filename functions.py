@@ -439,10 +439,14 @@ def n_effective(f, x, n_derive=1):
         basis = ws
 
 
-def get_deltas(model, data_x, data_y):
-    output = model(data_x)  # [p]
-    delta = model.kappa - output * data_y  # [p]
-    return delta.view(-1)
+def get_deltas(model, data_x, data_y, chunk=None):
+    if chunk is None:
+        chunk = len(data_x)
+
+    return torch.cat([
+        (model.kappa - model(data_x[i: i + chunk]) * data_y[i: i + chunk]).flatten()
+        for i in range(0, len(data_x), chunk)
+    ])
 
 
 def get_mistakes(model, data_x, data_y, chunk=None):
