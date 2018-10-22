@@ -560,7 +560,7 @@ def error_loss_grad(model, data_x, data_y):
         l.backward()
         loss += l.item()
 
-    grad_norm = sum(p.pow(2).sum() for p in model.parameters()).pow(0.5).item()
+    grad_norm = sum(p.grad.pow(2).sum() for p in model.parameters()).pow(0.5).item()
     return cons, loss, grad_norm, erro
 
 
