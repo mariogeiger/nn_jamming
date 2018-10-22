@@ -439,10 +439,14 @@ def n_effective(f, x, n_derive=1):
         basis = ws
 
 
-def get_deltas(model, data_x, data_y):
-    output = model(data_x)  # [p]
-    delta = model.kappa - output * data_y  # [p]
-    return delta.view(-1)
+def get_deltas(model, data_x, data_y, chunk=None):
+    if chunk is None:
+        chunk = len(data_x)
+
+    return torch.cat([
+        (model.kappa - model(data_x[i: i + chunk]) * data_y[i: i + chunk]).flatten()
+        for i in range(0, len(data_x), chunk)
+    ])
 
 
 def get_mistakes(model, data_x, data_y, chunk=None):
@@ -564,31 +568,44 @@ def error_loss_grad(model, data_x, data_y):
     return cons, loss, grad_norm, erro
 
 
-def make_a_step(model, optimizer, data_x, data_y, chunk=None):
+def make_a_step(model, optimizer, data_x, data_y, batch_size):
     '''
     data_x [batch, k] (?, dim)
     data_y [batch, class] (?,)
     '''
     model.train()
 
-    if chunk is None:
-        chunk = len(data_x)
+    with torch.no_grad():
+    
+        perm = torch.randperm(data_x.size(0), device=data_x.device)
+        mask = []
+        for i in range(0, len(data_x), batch_size):
+            idx = perm[i: i + batch_size]
+            output = model(data_x[idx])  # [p (, ?)]
+            delta = model.kappa - output * data_y[idx]  # [p (, ?)]
+            if delta.ndimension() == 2:
+                mask.append(idx[(delta > 0).any(1)])
+            else:
+                mask.append(idx[delta > 0])
 
-    mist_x, mist_y = get_mistakes(model, data_x, data_y, chunk)
-    if mist_x.size(0) == 0:
-        return 0
+            if sum(len(idx) for idx in mask) >= batch_size:
+                break
+        mask = torch.cat(mask)[:batch_size]
+
+        mist_x = data_x[mask]
+        mist_y = data_y[mask]
+
+        if mist_x.size(0) == 0:
+            return 0
+
+    deltas = get_deltas(model, mist_x, mist_y)
+    loss = 0.5 * deltas.pow(2).sum() / batch_size
 
     optimizer.zero_grad()
-
-    total_loss = 0
-    for i in range(0, len(mist_x), chunk):
-        deltas = get_deltas(model, mist_x[i: i + chunk], mist_y[i: i + chunk])
-        loss = 0.5 * deltas.pow(2).sum() / data_x.size(0)
-        total_loss += loss.item()
-        loss.backward()
-
+    loss.backward()
     optimizer.step()
-    return total_loss
+
+    return loss.item()
 
 
 def load_dir(directory):
