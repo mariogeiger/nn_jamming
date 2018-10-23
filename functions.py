@@ -342,9 +342,7 @@ class CNN(nn.Module):
         super().__init__()
 
         self.layers = nn.ModuleList([
-            nn.Conv2d(d, h, 5), 
-            nn.Conv2d(h, h, 3, stride=2),
-            nn.Conv2d(h, h, 3),
+            nn.Conv2d(d, h, 3, stride=3), 
             nn.Conv2d(h, h, 3, stride=2),
             nn.Conv2d(h, n_classes, 3)
         ])
