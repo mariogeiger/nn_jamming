@@ -700,6 +700,7 @@ def load_run(run):
 
     act = F.relu if run['args'].activation == "relu" else torch.tanh
     model_init = FC(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], act, kappa=run['desc']['kappa'], n_classes=n_classes)
+    model_init.load_state_dict(run["init"]['state'])
     model_init.type(dtype)
 
     model_last = copy.deepcopy(model_init)

@@ -411,7 +411,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         deltas = get_deltas(model, *trainset, 1024)
 
     run["init"] = {
-        "state": collections.OrderedDict([(n, p.cpu()) for n, p in init_state]),
+        "state": collections.OrderedDict([(n, p.cpu()) for n, p in init_state.items()]),
     }
 
     run["last"] = {
