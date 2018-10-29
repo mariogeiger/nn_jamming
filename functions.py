@@ -563,19 +563,22 @@ def error_loss_grad(model, data_x, data_y):
     return cons, loss, grad_norm, erro
 
 
-def make_a_step(model, optimizer, data_x, data_y, batch_size):
+def make_a_step(model, optimizer, data_x, data_y, batch_size, chunk=None):
     '''
     data_x [batch, k] (?, dim)
     data_y [batch, class] (?,)
     '''
     model.train()
 
+    if chunk is None:
+        chunk = len(data_x)
+
     with torch.no_grad():
 
         perm = torch.randperm(data_x.size(0), device=data_x.device)
         mask = []
-        for i in range(0, len(data_x), batch_size):
-            idx = perm[i: i + batch_size]
+        for i in range(0, len(data_x), chunk):
+            idx = perm[i: i + chunk]
             output = model(data_x[idx])  # [p (, ?)]
             delta = model.kappa - output * data_y[idx]  # [p (, ?)]
             if delta.ndimension() == 2:
