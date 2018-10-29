@@ -199,7 +199,7 @@ def init(args):
     model.to(device)
     model.type(dtype)
 
-    print("N={}".format(model.N))
+    logger.info("N={}".format(model.N))
 
     scheduler = None
     if args.optimizer == "sgd" or args.optimizer == "fdr":
