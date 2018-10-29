@@ -53,7 +53,7 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
             assert dim <= (e > 0).long().sum().item()
             transform = torchvision.transforms.Compose([
                 torchvision.transforms.ToTensor(),
-                lambda x: x.type(torch.float64),
+                lambda x: x.type(torch.float64).view(-1),
                 lambda x: (x - m) @ v[:, :dim] / e[:dim] ** 0.5,
             ])
         else:
