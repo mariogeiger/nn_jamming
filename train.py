@@ -29,8 +29,9 @@ def parse():
 
     parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple", "fdr"}, required=True)
     parser.add_argument("--n_steps_max", type=parse_kmg, required=True)
-    parser.add_argument("--compute_hessian", type=to_bool, default="True")
-    parser.add_argument("--compute_neff", type=to_bool, default="True")
+    parser.add_argument("--compute_hessian", type=to_bool, default="False")
+    parser.add_argument("--compute_neff", type=to_bool, default="False")
+    parser.add_argument("--compute_activities", type=to_bool, default="False")
     parser.add_argument("--save_hessian", type=to_bool, default="False")
     parser.add_argument("--checkpoints", type=int, nargs='+', default=[])
     parser.add_argument("--nd_stop", type=int, default=0)
@@ -228,6 +229,11 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
     fluctuation = 0
     dissipation = 0
 
+    init_state = copy.deepcopy(model.state_dict())
+
+    if args.compute_activities:
+        init_act = get_activities(model, trainset[0])
+
     step = 0
     while True:
         if step > args.n_steps_max:
@@ -257,8 +263,12 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
 
             data['state'] = {
-                "norm": collections.OrderedDict([(n, p.norm().item()) for n, p in model.named_parameters()])
+                "norm": collections.OrderedDict([(n, p.norm().item()) for n, p in model.named_parameters()]),
+                "displacement": collections.OrderedDict([(n, (p - init_state[n]).norm().item()) for n, p in model.named_parameters()]),
             }
+
+            if args.compute_activities:
+                data['activities'] = [(a - a0).norm().div(a0.norm()).item() for a, a0 in zip(get_activities(model, trainset[0]), init_act)]
 
             if args.optimizer == "adam_rlrop":
                 scheduler.step(data['train'][1])
@@ -399,6 +409,10 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
     error_loss = error_loss_grad(model, *trainset)
     with torch.no_grad():
         deltas = get_deltas(model, *trainset, 1024)
+
+    run["init"] = {
+        "state": collections.OrderedDict([(n, p.cpu()) for n, p in init_state]),
+    }
 
     run["last"] = {
         "train": error_loss,

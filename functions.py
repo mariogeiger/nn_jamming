@@ -289,7 +289,7 @@ def orthogonal_(tensor, gain=1):
 
 class FC(nn.Module):
 
-    def __init__(self, d, h, depth, activation=F.relu, kappa=1, n_classes=1):
+    def __init__(self, d, h, depth, act=F.relu, kappa=1, n_classes=1):
         super().__init__()
 
         layers = nn.ModuleList()
@@ -314,7 +314,7 @@ class FC(nn.Module):
         self.d = d
         self.h = h
         self.depth = depth
-        self.activation = activation
+        self.act = act
         self.kappa = kappa
         self.n_classes = n_classes
         self.preactivations = None
@@ -327,7 +327,7 @@ class FC(nn.Module):
             x = layer(x)
             if self.preactivations is not None:
                 self.preactivations.append(x)
-            x = self.activation(x)
+            x = self.act(x)
 
         x = self.layers[-1](x)
         if self.n_classes == 1:
@@ -342,24 +342,24 @@ class CNN(nn.Module):
         super().__init__()
 
         self.layers = nn.ModuleList([
-            nn.Conv2d(d, h, 3, stride=3), 
+            nn.Conv2d(d, h, 3, stride=3),
             nn.Conv2d(h, h, 3, stride=2),
             nn.Conv2d(h, n_classes, 3)
         ])
-        
+
         for name, p in self.layers.named_parameters():
             if 'weight' in name:
                 orthogonal_(p)
             if 'bias' in name:
                 nn.init.zeros_(p)
-                
+
         self.act = act
         self.n_classes = n_classes
         self.kappa = kappa
 
         self.preactivations = None
         self.N = sum(p.numel() for p in self.parameters())
-    
+
     def forward(self, x):
         assert self.preactivations is None or self.preactivations == []
 
@@ -370,9 +370,9 @@ class CNN(nn.Module):
             x = self.act(x)
 
         x = self.layers[-1](x)
-        
+
         x = x.flatten(2).mean(2)
-        
+
         if self.n_classes == 1:
             return x.view(-1)
         else:
@@ -471,10 +471,7 @@ def get_activities(model, data_x):
         model.preactivations = []
         model(data_x)
 
-        activities = torch.stack([
-            a > 0
-            for j, a in enumerate(model.preactivations)
-        ], dim=1)
+        activities = [model.act(a) for a in model.preactivations]
         model.preactivations = None  # free memory
 
     return activities
@@ -539,7 +536,7 @@ def compute_hessian_evalues(model, data_x, data_y):
 
 def error_loss_grad(model, data_x, data_y):
     model.eval()
-    
+
     cons = 0
     loss = 0
     erro = 0
@@ -574,7 +571,7 @@ def make_a_step(model, optimizer, data_x, data_y, batch_size):
     model.train()
 
     with torch.no_grad():
-    
+
         perm = torch.randperm(data_x.size(0), device=data_x.device)
         mask = []
         for i in range(0, len(data_x), batch_size):
@@ -627,7 +624,7 @@ def load_dir2(directory):
 
         with open(path, "rb") as f:
             index = pickle.load(f)
-            
+
     for num in range(len(index)):
         with open(os.path.join(directory, "run_{:04d}.pkl".format(num)), "rb") as f:
             yield pickle.load(f)
@@ -665,7 +662,7 @@ def dump_run2(directory, run):
                 index = pickle.load(f)
         else:
             index = []
-            
+
         num = len(index)
         index.append(run['desc'])
 
@@ -701,8 +698,8 @@ def load_run(run):
     _x, y = trainset
     n_classes = 1 if y.ndimension() == 1 else y.size(1)
 
-    activation = F.relu if run['args'].activation == "relu" else torch.tanh
-    model_init = FC(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], activation, kappa=run['desc']['kappa'], n_classes=n_classes)
+    act = F.relu if run['args'].activation == "relu" else torch.tanh
+    model_init = FC(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], act, kappa=run['desc']['kappa'], n_classes=n_classes)
     model_init.type(dtype)
 
     model_last = copy.deepcopy(model_init)
