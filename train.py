@@ -46,6 +46,7 @@ def parse():
     parser.add_argument("--min_learning_rate", type=float)
     parser.add_argument("--rlrop_cooldown", type=float)
     parser.add_argument("--momentum", type=float, default=0.0)
+    parser.add_argument("--train_last", type=to_bool, default="False")
 
     parser.add_argument("--batch_size", type=int)
     parser.add_argument("--n_steps_bs_grow", type=int)
@@ -201,15 +202,20 @@ def init(args):
 
     logger.info("N={}".format(model.N))
 
+    if args.train_last:
+        parameters = model.layers[-1].parameters()
+    else:
+        parameters = model.parameters()
+
     scheduler = None
     if args.optimizer == "sgd" or args.optimizer == "fdr":
-        optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=0)
+        optimizer = torch.optim.SGD(parameters, lr=args.learning_rate, momentum=args.momentum, weight_decay=0)
     if args.optimizer == "adam" or args.optimizer == "adam0" or args.optimizer == "adam_simple":
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+        optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
     if args.optimizer == "fire" or args.optimizer == "fire_simple":
-        optimizer = FIRE(model.parameters(), dt_max=args.learning_rate, a_start=1 - args.momentum)
+        optimizer = FIRE(parameters, dt_max=args.learning_rate, a_start=1 - args.momentum)
     if args.optimizer == "adam_rlrop":
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+        optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=0, verbose=True, threshold=-1, threshold_mode="rel", cooldown=args.rlrop_cooldown, min_lr=args.min_learning_rate)
 
     return model, trainset, testset, logger, optimizer, scheduler, device, desc, seed, run_id
