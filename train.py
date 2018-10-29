@@ -44,7 +44,7 @@ def parse():
     parser.add_argument("--lr_decay_factor", type=float)
     parser.add_argument("--min_learning_rate", type=float)
     parser.add_argument("--rlrop_cooldown", type=float)
-    parser.add_argument("--momentum", type=float, default=0.9)
+    parser.add_argument("--momentum", type=float, default=0.0)
 
     parser.add_argument("--batch_size", type=int)
     parser.add_argument("--n_steps_bs_grow", type=int)
@@ -64,6 +64,9 @@ def parse():
     if args.architecture == "cnn":
         assert args.depth is None
 
+    if args.optimizer == "sgd":
+        if args.batch_size is None:
+            args.batch_size = args.p
     if args.optimizer == "fdr":
         if args.learning_rate is None:
             args.learning_rate = 1e-2
