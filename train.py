@@ -246,26 +246,27 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
             data = {}
             dynamics.append(data)
 
+            data['state'] = {
+                "norm": collections.OrderedDict([(n, p.norm().item()) for n, p in model.named_parameters()]),
+                "displacement": collections.OrderedDict([(n, (p - init_state[n]).norm().item()) for n, p in model.named_parameters()]),
+            }
+
             data['step'] = step
             data['train'] = error_loss_grad(model, *trainset)
-            logger.info("({}|{}) [{}] train={:d} ({:.1f}%), {:.2g}, |Grad|={:.2g}".format(
+            logger.info("id={} P={} step={} nd={:d} np/P={:.1f}% Loss={:.2g} |Grad|={:.2g} |w-w0|={:.2g} |w|={:.2g}".format(
                     run_id,
                     desc['p'],
                     step,
                     data['train'][0],
                     100 * data['train'][0] / args.p,
                     data['train'][1],
-                    data['train'][2]
+                    data['train'][2],
+                    sum(p ** 2 for n, p in data['state']['displacement'].items()) ** 0.5,
+                    sum(p ** 2 for n, p in data['state']['norm'].items()) ** 0.5,
                 )
             )
             if testset is not None:
                 data['test'] = error_loss_grad(model, *testset)
-
-
-            data['state'] = {
-                "norm": collections.OrderedDict([(n, p.norm().item()) for n, p in model.named_parameters()]),
-                "displacement": collections.OrderedDict([(n, (p - init_state[n]).norm().item()) for n, p in model.named_parameters()]),
-            }
 
             if args.compute_activities:
                 data['activities'] = [(a - a0).norm().div(a0.norm()).item() for a, a0 in zip(get_activities(model, trainset[0]), init_act)]
