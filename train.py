@@ -277,9 +277,10 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
                 data['test'] = error_loss_grad(model, *testset)
 
             if args.compute_activities:
+                acti = get_activities(model, trainset[0])
                 data['activities'] = {
-                    "continuous": [(a - a0).norm().div(a0.norm()).item() for a, a0 in zip(get_activities(model, trainset[0]), init_act)],
-                    "binary": [((a > 0) != (a0 > 0)).long().sum().item() for a, a0 in zip(get_activities(model, trainset[0]), init_act)],
+                    "continuous": [(a - a0).norm().div(a0.norm()).item() for a, a0 in zip(acti, init_act)],
+                    "binary": [((a > 0) != (a0 > 0)).long().sum().item() for a, a0 in zip(acti, init_act)],
                 }
 
             if args.optimizer == "adam_rlrop":
