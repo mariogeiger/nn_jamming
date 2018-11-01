@@ -183,7 +183,11 @@ def init(args):
     logger.info(desc)
 
     seed = torch.randint(2 ** 62, (), dtype=torch.long).item()
-    trainset, testset = get_dataset(args.dataset, args.p, args.dim, seed, device, dtype)
+    trainset, testset = get_dataset(args.dataset, args.p, args.dim, seed)
+    trainset = (trainset[0].type(dtype).to(device), trainset[1].type(dtype).to(device))
+    if testset is not None:
+        testset = (testset[0].type(dtype).to(device), testset[1].type(dtype).to(device))
+
     _x, y = trainset
     n_classes = 1 if y.ndimension() == 1 else y.size(1)
 

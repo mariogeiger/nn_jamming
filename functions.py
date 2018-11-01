@@ -9,6 +9,7 @@ import numpy as np
 import fcntl
 import copy
 from hessian import gradient
+import functools
 
 
 class FSLocker:
@@ -25,15 +26,22 @@ class FSLocker:
         self.f.close()
 
 
-def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
-    if seed is not None:
-        torch.manual_seed(seed)
+def get_dataset(dataset, p, dim, seed=None):
+    if seed is None:
+        seed = torch.randint(2 ** 32, (), dtype=torch.long).item()
+
+    return _get_dataset(dataset, p, dim, seed)
+
+
+@functools.lru_cache(maxsize=2)
+def _get_dataset(dataset, p, dim, seed):
+    torch.manual_seed(seed)
 
     y = None
     yg = None
 
     if dataset == "random":
-        x = torch.randn(p, dim, dtype=torch.float64).to(device)
+        x = torch.randn(p, dim, dtype=torch.float64)
         xg = None
 
     elif dataset.startswith("mnist"):
@@ -80,8 +88,8 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
         assert p <= len(xs), "p={} and we have {} images".format(p, len(xs))
 
         x = torch.stack(xs)
-        xg = x[p:].to(device)
-        x = x[:p].to(device)
+        xg = x[p:]
+        x = x[:p]
 
     elif dataset == "cifar100":
         import torchvision
@@ -111,15 +119,15 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
         xs = list(chain(*zip(*classes)))
         assert p <= len(xs), "p={} and we have {} images".format(p, len(xs))
 
-        y = -torch.ones(len(xs), 100, dtype=torch.float64, device=device)
+        y = -torch.ones(len(xs), 100, dtype=torch.float64)
         for i in range(len(xs)):
             y[i, i % 100] = 1
-        yg = y[p:].to(device)
-        y = y[:p].to(device)
+        yg = y[p:]
+        y = y[:p]
 
         x = torch.stack(xs)
-        xg = x[p:].to(device)
-        x = x[:p].to(device)
+        xg = x[p:]
+        x = x[:p]
 
     elif dataset == "cifar10":
         import torchvision
@@ -149,15 +157,15 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
         xs = list(chain(*zip(*classes)))
         assert p <= len(xs), "p={} and we have {} images".format(p, len(xs))
 
-        y = -torch.ones(len(xs), 10, dtype=torch.float64, device=device)
+        y = -torch.ones(len(xs), 10, dtype=torch.float64)
         for i in range(len(xs)):
             y[i, i % 10] = 1
-        yg = y[p:].to(device)
-        y = y[:p].to(device)
+        yg = y[p:]
+        y = y[:p]
 
         x = torch.stack(xs)
-        xg = x[p:].to(device)
-        x = x[:p].to(device)
+        xg = x[p:]
+        x = x[:p]
 
     elif dataset.startswith("cifar2"):
         import torchvision
@@ -236,8 +244,8 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
         assert p <= len(xs), "p={} and we have {} images".format(p, len(xs))
 
         x = torch.stack(xs)
-        xg = x[p:].to(device)
-        x = x[:p].to(device)
+        xg = x[p:]
+        x = x[:p]
 
     else:
         raise ValueError("unknown dataset")
@@ -245,19 +253,13 @@ def get_dataset(dataset, p, dim, seed=None, device=None, dtype=None):
     x = x - x.mean(0)
     x = x.flatten(1).size(1) ** 0.5 * x / x.flatten(1).norm(dim=1).view(-1, *(1,) * (x.ndimension() - 1))
     if y is None:
-        y = (torch.arange(p, dtype=torch.float64, device=device) % 2) * 2 - 1
-
-    if dtype is not None:
-        x, y = x.type(dtype), y.type(dtype)
+        y = (torch.arange(p, dtype=torch.float64) % 2) * 2 - 1
 
     if xg is not None and len(x) > 0:
         xg = xg - xg.mean(0)
         xg = xg.flatten(1).size(1) ** 0.5 * xg / xg.flatten(1).norm(dim=1).view(-1, *(1,) * (x.ndimension() - 1))
         if yg is None:
-            yg = (torch.arange(p, p + len(xg), dtype=torch.float64, device=device) % 2) * 2 - 1
-
-        if dtype is not None:
-            xg, yg = xg.type(dtype), yg.type(dtype)
+            yg = (torch.arange(p, p + len(xg), dtype=torch.float64) % 2) * 2 - 1
 
         return (x, y), (xg, yg)
 
@@ -693,24 +695,21 @@ def copy_runs2(src, dst):
 
 
 def load_run(run):
-    device = torch.device(run['args'].device)
     dtype = torch.float32 if run['args'].precision == "f32" else torch.float64
     torch.set_default_dtype(dtype)
 
-    trainset, testset = get_dataset(run['args'].dataset, run['desc']['p'], run['desc']['dim'], run['seed'], device, dtype)
+    trainset, testset = get_dataset(run['args'].dataset, run['desc']['p'], run['desc']['dim'], run['seed'])
     _x, y = trainset
     n_classes = 1 if y.ndimension() == 1 else y.size(1)
 
     act = F.relu if run['args'].activation == "relu" else torch.tanh
     model_init = FC(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], act, kappa=run['desc']['kappa'], n_classes=n_classes)
-    model_init.load_state_dict(run["init"]['state'])
     model_init.type(dtype)
+    model_init.load_state_dict(run["init"]['state'])
 
     model_last = copy.deepcopy(model_init)
     model_last.load_state_dict(run['last']['state'])
 
-    model_init.to(device)
-    model_last.to(device)
     return model_init, model_last, trainset, testset
 
 
