@@ -20,6 +20,7 @@ def parse():
     parser.add_argument("--log_dir", type=str, required=True)
 
     parser.add_argument("--dataset", required=True)
+    parser.add_argument("--seed", type=int)
     parser.add_argument("--architecture", choices={"fc", "cnn"}, required=True)
     parser.add_argument("--dim", type=int, required=True)
     parser.add_argument("--p", type=parse_kmg, required=True)
@@ -182,7 +183,7 @@ def init(args):
 
     logger.info(desc)
 
-    seed = torch.randint(2 ** 62, (), dtype=torch.long).item()
+    seed = torch.randint(2 ** 62, (), dtype=torch.long).item() if args.seed is None else args.seed
     trainset, testset = get_dataset(args.dataset, args.p, args.dim, seed)
     trainset = (trainset[0].type(dtype).to(device), trainset[1].type(dtype).to(device))
     if testset is not None:
