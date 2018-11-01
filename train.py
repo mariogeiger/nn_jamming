@@ -227,7 +227,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
     checkpoints = []
 
-    time_1 = time_logging.start()
+    time_0 = time_1 = time_logging.start()
 
     batch_size = args.batch_size
 
@@ -472,6 +472,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
     dump_run2(args.log_dir, run)
 
+    time_logging.end("total", time_0)
     logger.info(time_logging.text_statistics())
 
 
