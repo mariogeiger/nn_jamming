@@ -698,7 +698,7 @@ def load_run(run):
     dtype = torch.float32 if run['args'].precision == "f32" else torch.float64
     torch.set_default_dtype(dtype)
 
-    trainset, testset = get_dataset(run['args'].dataset, run['desc']['p'], run['desc']['dim'], run['seed'])
+    trainset, testset = get_dataset(run['args'].dataset, run['desc']['p'], run['desc']['dim'], run['data_seed'])
     _x, y = trainset
     n_classes = 1 if y.ndimension() == 1 else y.size(1)
 
