@@ -19,8 +19,10 @@ def parse():
     parser.add_argument("--device", type=str)
     parser.add_argument("--log_dir", type=str, required=True)
 
+    parser.add_argument("--init_seed", type=int)
+    parser.add_argument("--data_seed", type=int)
+
     parser.add_argument("--dataset", required=True)
-    parser.add_argument("--seed", type=int)
     parser.add_argument("--architecture", choices={"fc", "cnn"}, required=True)
     parser.add_argument("--dim", type=int, required=True)
     parser.add_argument("--p", type=parse_kmg, required=True)
@@ -183,8 +185,10 @@ def init(args):
 
     logger.info(desc)
 
-    seed = torch.randint(2 ** 62, (), dtype=torch.long).item() if args.seed is None else args.seed
-    trainset, testset = get_dataset(args.dataset, args.p, args.dim, seed)
+    init_seed = torch.randint(2 ** 62, (), dtype=torch.long).item() if args.init_seed is None else args.init_seed
+    data_seed = torch.randint(2 ** 62, (), dtype=torch.long).item() if args.data_seed is None else args.data_seed
+
+    trainset, testset = get_dataset(args.dataset, args.p, args.dim, data_seed)
     trainset = (trainset[0].type(dtype).to(device), trainset[1].type(dtype).to(device))
     if testset is not None:
         testset = (testset[0].type(dtype).to(device), testset[1].type(dtype).to(device))
@@ -192,6 +196,7 @@ def init(args):
     _x, y = trainset
     n_classes = 1 if y.ndimension() == 1 else y.size(1)
 
+    torch.manual_seed(init_seed)
     activation = F.relu if args.activation == "relu" else torch.tanh
     if args.architecture == "fc":
         trainset = (trainset[0].flatten(1), trainset[1])
@@ -223,10 +228,10 @@ def init(args):
         optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=0, verbose=True, threshold=-1, threshold_mode="rel", cooldown=args.rlrop_cooldown, min_lr=args.min_learning_rate)
 
-    return model, trainset, testset, logger, optimizer, scheduler, device, desc, seed, run_id
+    return model, trainset, testset, logger, optimizer, scheduler, device, desc, init_seed, data_seed, run_id
 
 
-def train(args, model, trainset, testset, logger, optimizer, scheduler, device, desc, seed, run_id):
+def train(args, model, trainset, testset, logger, optimizer, scheduler, device, desc, init_seed, data_seed, run_id):
     measure_points = set(intlogspace(1, args.n_steps_max, 150, with_zero=True, with_end=True))
     dynamics = []
 
@@ -418,7 +423,8 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         "id": run_id,
         "desc": desc,
         "args": args,
-        "seed": seed,
+        "init_seed": init_seed,
+        "data_seed": data_seed,
         "N": model.N,
         "dynamics": dynamics,
         "checkpoints": checkpoints,
