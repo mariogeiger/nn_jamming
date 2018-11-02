@@ -30,7 +30,7 @@ def parse():
     parser.add_argument("--depth", type=int)
     parser.add_argument("--rep", type=int, default=0)
 
-    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple", "fdr"}, required=True)
+    parser.add_argument("--optimizer", choices={"sgd", "sgd_ntk", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple", "fdr"}, required=True)
     parser.add_argument("--n_steps_max", type=parse_kmg, required=True)
     parser.add_argument("--compute_hessian", type=to_bool, default="False")
     parser.add_argument("--compute_neff", type=to_bool, default="False")
@@ -72,6 +72,11 @@ def parse():
     if args.optimizer == "sgd":
         if args.batch_size is None:
             args.batch_size = args.p
+    if args.optimizer == "sgd_ntk":
+        if args.batch_size is None:
+            args.batch_size = args.p
+        if args.learning_rate is None:
+            args.learning_rate = 1
     if args.optimizer == "fdr":
         if args.learning_rate is None:
             args.learning_rate = 1e-2
@@ -220,6 +225,8 @@ def init(args):
     scheduler = None
     if args.optimizer == "sgd" or args.optimizer == "fdr":
         optimizer = torch.optim.SGD(parameters, lr=args.learning_rate, momentum=args.momentum, weight_decay=0)
+    if args.optimizer == "sgd_ntk":
+        optimizer = torch.optim.SGD(parameters, lr=args.learning_rate / args.width, momentum=args.momentum, weight_decay=0)
     if args.optimizer == "adam" or args.optimizer == "adam0" or args.optimizer == "adam_simple":
         optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
     if args.optimizer == "fire" or args.optimizer == "fire_simple":
