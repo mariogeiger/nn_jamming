@@ -30,6 +30,8 @@ def parse():
     parser.add_argument("--width", type=int, required=True)
     parser.add_argument("--depth", type=int)
     parser.add_argument("--rep", type=int, default=0)
+
+    parser.add_argument("--init", choices={"orth", "normal"}, default="orth", required=True)
     parser.add_argument("--init_gain", type=float, default=1)
 
     parser.add_argument("--optimizer", choices={"sgd", "sgd_ntk", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple", "fdr"}, required=True)
@@ -215,7 +217,12 @@ def init(args):
             if 'bias' in n:
                 nn.init.zeros_(p)
             if 'weight' in n:
-                orthogonal_(p, gain=args.init_gain)
+                if args.init == "orth":
+                    orthogonal_(p, gain=args.init_gain)
+                elif args.init == "normal":
+                    nn.init.normal_(p, std=args.init_gain / p.size(1) ** 0.5)
+                else:
+                    raise ValueError()
 
     if args.architecture == "cnn":
         assert trainset[0].ndimension() == 4

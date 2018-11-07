@@ -300,15 +300,11 @@ class FC(nn.Module):
 
         for _ in range(depth):
             lin = nn.Linear(f, h, bias=True)
-            orthogonal_(lin.weight)
-            nn.init.zeros_(lin.bias)
 
             layers += [lin]
             f = h
 
         lin = nn.Linear(f, n_classes, bias=True)
-        orthogonal_(lin.weight, gain=kappa)
-        nn.init.zeros_(lin.bias)
 
         layers += [lin]
         self.layers = layers
