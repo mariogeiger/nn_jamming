@@ -29,6 +29,7 @@ def parse():
     parser.add_argument("--width", type=int, required=True)
     parser.add_argument("--depth", type=int)
     parser.add_argument("--rep", type=int, default=0)
+    parser.add_argument("--init_gain", type=float, default=1)
 
     parser.add_argument("--optimizer", choices={"sgd", "sgd_ntk", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple", "fdr"}, required=True)
     parser.add_argument("--n_steps_max", type=parse_kmg, required=True)
@@ -208,6 +209,13 @@ def init(args):
         if testset is not None:
             testset = (testset[0].flatten(1), testset[1])
         model = FC(args.dim, args.width, args.depth, activation, kappa=args.kappa, n_classes=n_classes)
+
+        for n, p in model.named_parameters():
+            if 'bias' in n:
+                nn.init.zeros_(p)
+            if 'weight' in n:
+                orthogonal_(p, gain=args.init_gain)
+
     if args.architecture == "cnn":
         assert trainset[0].ndimension() == 4
         assert testset[0].ndimension() == 4
