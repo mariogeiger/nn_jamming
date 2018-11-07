@@ -241,6 +241,8 @@ def init(args):
 
     scheduler = None
     learning_rate = args.learning_rate * args.width ** args.lr_width_exponent
+    logger.info("learning rate = {}".format(learning_rate))
+
     if args.optimizer == "sgd" or args.optimizer == "fdr":
         optimizer = torch.optim.SGD(parameters, lr=learning_rate, momentum=args.momentum, weight_decay=0)
     if args.optimizer == "adam" or args.optimizer == "adam0" or args.optimizer == "adam_simple":
