@@ -21,6 +21,7 @@ def parse():
 
     parser.add_argument("--init_seed", type=int)
     parser.add_argument("--data_seed", type=int)
+    parser.add_argument("--skip", type=to_bool, default="True")
 
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--architecture", choices={"fc", "cnn"}, required=True)
@@ -161,7 +162,7 @@ def init(args):
         "rep": args.rep,
     }
 
-    if desc in load_dir_desc2(args.log_dir):
+    if args.skip and desc in load_dir_desc2(args.log_dir):
         print("{} skiped".format(repr(desc)))
         return None
 
