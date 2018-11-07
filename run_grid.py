@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--depth", type=int, nargs='+')
     parser.add_argument("--p", type=str, nargs='+', required=True)
     parser.add_argument("--rep", type=int, nargs='+', default=[0])
+    parser.add_argument("--init_gain", type=float, nargs='+', default=[1])
     parser.add_argument("--args", type=str, default="")
     parser.add_argument("--launcher", type=str, default="")  # srun --partition gpu --qos gpu --gres gpu:1 --time 3-00:00:00 --mem 12G
 
@@ -27,19 +28,19 @@ def main():
         args.dim = [None]
 
     command = "{} ".format(args.launcher)
-    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{dim}} --width {{width}} --rep {{rep}} {args}".format(
+    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{dim}} --width {{width}} --rep {{rep}} --init_gain {{gain}} {args}".format(
         log_dir=args.log_dir, args=args.args)
 
     running = []
 
-    for p, dim, width, depth, rep in product(args.p, args.dim, args.width, args.depth, args.rep):
+    for p, dim, width, depth, rep, gain in product(args.p, args.dim, args.width, args.depth, args.rep, args.init_gain):
         while len(running) >= args.n_parallel:
             running = [x for x in running if x.poll() is None]
             time.sleep(2)
         if os.path.isfile("stop"):
             break
 
-        cmd = command.format(p=p, dim=dim if dim else width, width=width, rep=rep)
+        cmd = command.format(p=p, dim=dim if dim else width, width=width, rep=rep, gain=gain)
 
         if depth:
             cmd += " --depth {}".format(depth)
