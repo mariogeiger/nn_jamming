@@ -34,7 +34,8 @@ def parse():
     parser.add_argument("--init", choices={"orth", "normal"}, default="orth", required=True)
     parser.add_argument("--init_gain", type=float, default=1)
 
-    parser.add_argument("--optimizer", choices={"sgd", "sgd_ntk", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple", "fdr"}, required=True)
+    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple", "fdr"}, required=True)
+    parser.add_argument("--lr_width_exponent", type=float, default=0)
     parser.add_argument("--n_steps_max", type=parse_kmg, required=True)
     parser.add_argument("--compute_hessian", type=to_bool, default="False")
     parser.add_argument("--compute_neff", type=to_bool, default="False")
@@ -239,15 +240,15 @@ def init(args):
         parameters = model.parameters()
 
     scheduler = None
+    learning_rate = args.learning_rate * args.width ** args.lr_width_exponent
     if args.optimizer == "sgd" or args.optimizer == "fdr":
-        optimizer = torch.optim.SGD(parameters, lr=args.learning_rate, momentum=args.momentum, weight_decay=0)
-    if args.optimizer == "sgd_ntk":
-        optimizer = torch.optim.SGD(parameters, lr=args.learning_rate / args.width, momentum=args.momentum, weight_decay=0)
+        optimizer = torch.optim.SGD(parameters, lr=learning_rate, momentum=args.momentum, weight_decay=0)
     if args.optimizer == "adam" or args.optimizer == "adam0" or args.optimizer == "adam_simple":
-        optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
+        optimizer = torch.optim.Adam(parameters, lr=learning_rate)
     if args.optimizer == "fire" or args.optimizer == "fire_simple":
-        optimizer = FIRE(parameters, dt_max=args.learning_rate, a_start=1 - args.momentum)
+        optimizer = FIRE(parameters, dt_max=learning_rate, a_start=1 - args.momentum)
     if args.optimizer == "adam_rlrop":
+        assert args.lr_width_exponent == 0, "code has to be updated"
         optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=0, verbose=True, threshold=-1, threshold_mode="rel", cooldown=args.rlrop_cooldown, min_lr=args.min_learning_rate)
 
@@ -384,6 +385,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
         if args.n_steps_lr_decay and step > 0 and step % args.n_steps_lr_decay == 0:
             for pg in optimizer.param_groups:
+                assert args.lr_width_exponent == 0, "code has to be updated"
                 if isinstance(optimizer, FIRE):
                     pg['dt_max'] = max(args.min_learning_rate, pg['dt_max'] / args.lr_decay_factor)
                     logger.info("({}|{}) dt_max set to {}".format(run_id, desc['p'], pg['dt_max']))
