@@ -1,3 +1,28 @@
+"""
+
+import time_logging
+
+t = time_logging.start()
+
+for x, y in dataloader:
+    t = time_logging.end("load", t)
+
+    loss = (f(x) - y).pow(2).mean()
+
+    t = time_logging.end("forward", t)
+
+    opt.zero_grad()
+    loss.backward()
+
+    t = time_logging.end("backward", t)
+
+    opt.step()
+
+    t = time_logging.end("step", t)
+
+print(time_logging.text_statistics())
+
+"""
 from time import perf_counter
 import torch
 
