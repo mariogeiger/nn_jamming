@@ -649,6 +649,22 @@ def load_dir_desc2(directory):
             yield desc
 
 
+def load_dir_functional(directory):
+    with FSLocker(os.path.join(directory, "index.pkl.lock")):
+        path = os.path.join(directory, "index.pkl")
+        if not os.path.isfile(path):
+            return
+
+        with open(path, "rb") as f:
+            index = pickle.load(f)
+
+        for num, desc in enumerate(index):
+            def foo():
+                with open(os.path.join(directory, "run_{:04d}.pkl".format(num)), "rb") as f:
+                    return pickle.load(f)
+            yield desc, foo
+
+
 def dump_run(directory, run):
     with FSLocker(os.path.join(directory, "output.pkl.lock")):
         with open(os.path.join(directory, "output.pkl"), "ab") as f:
