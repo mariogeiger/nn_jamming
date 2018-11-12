@@ -48,7 +48,7 @@ def parse():
     parser.add_argument("--kappa", type=float, default=1)
 
     parser.add_argument("--learning_rate", type=float)
-    parser.add_argument("--n_steps_lr_decay", type=int)
+    parser.add_argument("--n_steps_lr_decay", type=parse_kmg)
     parser.add_argument("--fdr_epoch", type=int)
     parser.add_argument("--lr_decay_factor", type=float)
     parser.add_argument("--min_learning_rate", type=float)
