@@ -47,6 +47,7 @@ def parse():
 
     parser.add_argument("--kappa", type=float, default=1)
 
+    parser.add_argument("--max_learning_rate", type=float)
     parser.add_argument("--learning_rate", type=float)
     parser.add_argument("--n_steps_lr_decay", type=parse_kmg)
     parser.add_argument("--fdr_epoch", type=int)
@@ -92,6 +93,8 @@ def parse():
         if args.fdr_epoch is None:
             args.fdr_epoch = 500
     if args.optimizer == "adam_simple":
+        if args.max_learning_rate is None:
+            args.max_learning_rate = 1e-4
         if args.learning_rate is None:
             args.learning_rate = 1e-4
         if args.batch_size is None:
@@ -240,7 +243,7 @@ def init(args):
         parameters = model.parameters()
 
     scheduler = None
-    learning_rate = args.learning_rate * args.width ** args.lr_width_exponent
+    learning_rate = min(args.learning_rate * args.width ** args.lr_width_exponent, args.max_learning_rate)
     logger.info("learning rate = {}".format(learning_rate))
 
     if args.optimizer == "sgd" or args.optimizer == "fdr":
