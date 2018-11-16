@@ -286,9 +286,6 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         if step > args.n_steps_max:
             break
 
-        if step % 100 == 0:
-            print("{:.2f}%      ".format(step / args.n_steps_max * 100), end="\r")
-
         if step in measure_points or step % 1000 == 0:
             data = {}
             dynamics.append(data)
