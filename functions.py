@@ -659,10 +659,12 @@ def load_dir_functional(directory):
             index = pickle.load(f)
 
         for num, desc in enumerate(index):
-            def foo():
-                with open(os.path.join(directory, "run_{:04d}.pkl".format(num)), "rb") as f:
-                    return pickle.load(f)
-            yield desc, foo
+            fi = os.path.join(directory, "run_{:04d}.pkl".format(num))
+            if os.path.isfile(fi):
+                def foo():
+                    with open(fi, "rb") as f:
+                        return pickle.load(f)
+                yield desc, foo
 
 
 def dump_run(directory, run):
