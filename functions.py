@@ -56,6 +56,12 @@ def _get_dataset(dataset, p, dim, seed):
                 torchvision.transforms.ToTensor(),
                 lambda x: x.type(torch.float64)
             ])
+        elif dataset == "mnist_flat":
+            assert dim == 28 * 28
+            transform = torchvision.transforms.Compose([
+                torchvision.transforms.ToTensor(),
+                lambda x: x.type(torch.float64).view(-1),
+            ])
         elif dataset == "mnist_pca":
             m, v, e = torch.load('../mnist/pca.pkl')
             assert dim <= (e > 0).long().sum().item()
