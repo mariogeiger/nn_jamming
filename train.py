@@ -467,16 +467,22 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         "state": collections.OrderedDict([(n, p.cpu()) for n, p in init_state.items()]),
     }
 
+    grads = None
+    if args.compute_input_gradients:
+        logger.info("({}|{}) compute input gradients".format(run_id, desc['p']))
+        grads = {
+            "train": get_gradients(model, trainset[0]).cpu(),
+            "test": get_gradients(model, testset[0]).cpu() if testset is not None else None,
+        }
+        time_1 = time_logging.end("input gradients", time_1)
+
     run["last"] = {
         "train": error_loss,
         "state": None,
         "deltas": deltas.cpu(),
         "hessian": None,
         "Neff": None,
-        "grads": {
-            "train": get_gradients(model, trainset[0]).cpu() if args.compute_input_gradients else None,
-            "test": get_gradients(model, testset[0]).cpu() if testset is not None and args.compute_input_gradients else None,
-        }
+        "grads": grads,
     }
     if 8 * model.N**2 < 1e9 and args.compute_neff:
         try:
