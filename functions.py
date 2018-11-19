@@ -451,6 +451,15 @@ def get_deltas(model, data_x, data_y, chunk=None):
     ])
 
 
+def get_gradients(model, data_x):
+    gs = []
+    for i in range(len(data_x)):
+        i = torch.tensor(data_x[i], requires_grad=True, device=data_x.device)
+        g = gradient(model(i)[0], i).detach()
+        gs.append(g)
+    return torch.stack(gs)
+
+
 def get_mistakes(model, data_x, data_y, chunk=None):
     if chunk is None:
         chunk = len(data_x)

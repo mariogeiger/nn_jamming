@@ -40,6 +40,7 @@ def parse():
     parser.add_argument("--compute_hessian", type=to_bool, default="False")
     parser.add_argument("--compute_neff", type=to_bool, default="False")
     parser.add_argument("--compute_activities", type=to_bool, default="False")
+    parser.add_argument("--compute_input_gradients", type=to_bool, default="False")
     parser.add_argument("--save_hessian", type=to_bool, default="False")
     parser.add_argument("--checkpoints", type=int, nargs='+', default=[])
     parser.add_argument("--nd_stop", type=int, default=0)
@@ -472,6 +473,10 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         "deltas": deltas.cpu(),
         "hessian": None,
         "Neff": None,
+        "grads": {
+            "train": get_gradients(model, trainset[0]).cpu() if args.compute_input_gradients else None,
+            "test": get_gradients(model, testset[0]).cpu() if testset is not None and args.compute_input_gradients else None,
+        }
     }
     if 8 * model.N**2 < 1e9 and args.compute_neff:
         try:
