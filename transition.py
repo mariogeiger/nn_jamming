@@ -81,7 +81,7 @@ def main():
 
 
     with multiprocessing.Pool(args.n_parallel) as pool:
-        pool.imap_unordered(foo, product(args.p, args.dim, args.depth, args.rep))
+        list(pool.imap_unordered(foo, product(args.p, args.dim, args.depth, args.rep)))
 
 
 if __name__ == '__main__':
