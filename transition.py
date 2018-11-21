@@ -21,6 +21,47 @@ def find_h(N, L, d):
     return round((((d + 1)**2 + 4 * N * (L - 1))**0.5 - (d + 1)) / (2 * (L - 1)))
 
 
+GLO = [None, None]
+
+
+def foo(p, dim, depth, rep):
+    global GLO
+    args, command = GLO
+
+    max_h = find_h(args.max_factor * p, depth, dim)
+    hs = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 21, 23, 25, 27, 29, 31, 32, 34, 37, 39, 41, 43, 44, 46, 48, 50, 52, 54, 57, 62, 67, 73, 80, 87, 94, 102, 111, 121, 132, 143, 156, 169, 184, 200, 217, 236, 257, 280, 304, 331, 359, 391, 425, 462, 502, 546, 594, 646, 702, 764, 830, 903]
+    hs = [x for x in hs if x <= max_h]
+    hs = sorted(hs, reverse=True)
+
+    print(">>> hs={}".format(hs))
+
+    n_unsat = 0
+    for h in hs:
+        d = dim if dim else h
+        N = d * h + h ** 2 * (depth - 1) + h
+        cmd = command.format(p=p, h=h, d=d, depth=depth, nd_stop=N // 20 if args.fast else 0)
+        print(">>> " + cmd)
+
+        run = subprocess.Popen(cmd.split())
+        run.wait()
+
+        desc = {
+            "p": p,
+            "dim": d,
+            "depth": depth,
+            "width": h,
+            "kappa": 1,
+            "rep": rep,
+        }
+
+        run = next(r() for desc_, r in load_dir_functional(args.log_dir) if desc_ == desc)
+
+        if run['last']['train'][0] > 0.1 * run['N']:
+            n_unsat += 1
+            if n_unsat >= args.n_unsat:
+                break
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -45,40 +86,9 @@ def main():
     command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{d}} --width {{h}} --depth {{depth}} --nd_stop {{nd_stop}} ".format(
         log_dir=args.log_dir) + args.args
 
-    def foo(p, dim, depth, rep):
-        max_h = find_h(args.max_factor * p, depth, dim)
-        hs = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 21, 23, 25, 27, 29, 31, 32, 34, 37, 39, 41, 43, 44, 46, 48, 50, 52, 54, 57, 62, 67, 73, 80, 87, 94, 102, 111, 121, 132, 143, 156, 169, 184, 200, 217, 236, 257, 280, 304, 331, 359, 391, 425, 462, 502, 546, 594, 646, 702, 764, 830, 903]
-        hs = [x for x in hs if x <= max_h]
-        hs = sorted(hs, reverse=True)
-
-        print(">>> hs={}".format(hs))
-
-        n_unsat = 0
-        for h in hs:
-            d = dim if dim else h
-            N = d * h + h ** 2 * (depth - 1) + h
-            cmd = command.format(p=p, h=h, d=d, depth=depth, nd_stop=N // 20 if args.fast else 0)
-            print(">>> " + cmd)
-
-            run = subprocess.Popen(cmd.split())
-            run.wait()
-
-            desc = {
-                "p": p,
-                "dim": d,
-                "depth": depth,
-                "width": h,
-                "kappa": 1,
-                "rep": rep,
-            }
-
-            run = next(r() for desc_, r in load_dir_functional(args.log_dir) if desc_ == desc)
-
-            if run['last']['train'][0] > 0.1 * run['N']:
-                n_unsat += 1
-                if n_unsat >= args.n_unsat:
-                    break
-
+    global GLO
+    GLO[0] = args
+    GLO[1] = command
 
     with multiprocessing.Pool(args.n_parallel) as pool:
         list(pool.imap_unordered(foo, product(args.p, args.dim, args.depth, args.rep)))
