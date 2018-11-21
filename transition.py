@@ -2,6 +2,8 @@
 from functions import *
 import subprocess
 import argparse
+from itertools import product
+import multiprocessing
 
 
 def find_h(N, L, d):
@@ -23,28 +25,27 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--log_dir", type=str, required=True)
-    parser.add_argument("--dim", type=int)
-    parser.add_argument("--depth", type=int)
+    parser.add_argument("--n_parallel", type=int, default=1)
+    parser.add_argument("--dim", type=int, nargs='+')
+    parser.add_argument("--depth", type=int, nargs='+', required=True)
     parser.add_argument("--args", type=str, default="")
-    parser.add_argument("--p", type=int, nargs='+', default=[])
+    parser.add_argument("--p", type=int, nargs='+', required=True)
     parser.add_argument("--max_factor", type=float)
     parser.add_argument("--n_unsat", type=int, default=1)
-    parser.add_argument("--launcher", type=str, default="gpurun")
+    parser.add_argument("--launcher", type=str, default="")
     parser.add_argument("--fast", type=to_bool, default="False")
 
     args = parser.parse_args()
 
-    command = ""
-    if args.launcher == "gpurun":
-        command = "gpurun "
-    if args.launcher == "srun":
-        command = "srun --partition gpu --qos gpu --gres gpu:1 --time 3-00:00:00 --mem 12G "
+    if args.dim is None:
+        args.dim = [None]
 
-    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{d}} --width {{h}} --depth {depth} --nd_stop {{nd_stop}} ".format(
-        log_dir=args.log_dir, depth=args.depth) + args.args
+    command = "{} ".format(args.launcher)
+    command += "python train.py --log_dir {log_dir} --p {{p}} --dim {{d}} --width {{h}} --depth {{depth}} --nd_stop {{nd_stop}} ".format(
+        log_dir=args.log_dir) + args.args
 
-    for p in args.p:
-        max_h = find_h(args.max_factor * p, args.depth, args.dim)
+    def foo(p, dim, depth, rep):
+        max_h = find_h(args.max_factor * p, depth, dim)
         hs = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 21, 23, 25, 27, 29, 31, 32, 34, 37, 39, 41, 43, 44, 46, 48, 50, 52, 54, 57, 62, 67, 73, 80, 87, 94, 102, 111, 121, 132, 143, 156, 169, 184, 200, 217, 236, 257, 280, 304, 331, 359, 391, 425, 462, 502, 546, 594, 646, 702, 764, 830, 903]
         hs = [x for x in hs if x <= max_h]
         hs = sorted(hs, reverse=True)
@@ -53,9 +54,9 @@ def main():
 
         n_unsat = 0
         for h in hs:
-            d = args.dim if args.dim else h
-            N = d * h + h ** 2 * (args.depth - 1) + h
-            cmd = command.format(p=p, h=h, d=d, nd_stop=N // 20 if args.fast else 0)
+            d = dim if dim else h
+            N = d * h + h ** 2 * (depth - 1) + h
+            cmd = command.format(p=p, h=h, d=d, depth=depth, nd_stop=N // 20 if args.fast else 0)
             print(">>> " + cmd)
 
             run = subprocess.Popen(cmd.split())
@@ -64,20 +65,22 @@ def main():
             desc = {
                 "p": p,
                 "dim": d,
-                "depth": args.depth,
+                "depth": depth,
                 "width": h,
                 "kappa": 1,
-                "rep": 0,
+                "rep": rep,
             }
 
-            num = next(i for i, desc_ in enumerate(load_dir_desc2(args.log_dir)) if desc_ == desc)
-            with open(os.path.join(args.log_dir, "run_{:04d}.pkl".format(num)), "rb") as f:
-                run = pickle.load(f)
+            run = next(r() for desc_, r in load_dir_functional(args.log_dir) if desc_ == desc)
 
             if run['last']['train'][0] > 0.1 * run['N']:
                 n_unsat += 1
                 if n_unsat >= args.n_unsat:
                     break
+
+
+    with multiprocessing.Pool(args.n_parallel) as pool:
+        pool.imap_unordered(foo, product(args.p, args.dim, args.depth, args.rep))
 
 
 if __name__ == '__main__':
