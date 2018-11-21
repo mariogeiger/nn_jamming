@@ -30,6 +30,7 @@ def main():
     parser.add_argument("--depth", type=int, nargs='+', required=True)
     parser.add_argument("--args", type=str, default="")
     parser.add_argument("--p", type=int, nargs='+', required=True)
+    parser.add_argument("--rep", type=int, nargs='+', default=[0])
     parser.add_argument("--max_factor", type=float)
     parser.add_argument("--n_unsat", type=int, default=1)
     parser.add_argument("--launcher", type=str, default="")
