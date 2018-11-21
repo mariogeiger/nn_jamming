@@ -24,7 +24,9 @@ def find_h(N, L, d):
 GLO = [None, None]
 
 
-def foo(p, dim, depth, rep):
+def foo(ar):
+    p, dim, depth, rep = ar
+
     global GLO
     args, command = GLO
 
