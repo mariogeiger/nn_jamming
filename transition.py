@@ -32,7 +32,7 @@ def foo(ar):
 
     max_h = find_h(args.max_factor * p, depth, dim)
 
-    runs = [r() for desc, r in load_dir_functional(args.log_dir) if desc['p'] == p and desc['dim'] == dim and desc['depth'] == depth and desc['rep'] == rep]
+    runs = [r() for desc, r in load_dir_functional(args.log_dir) if desc['p'] == p and (desc['dim'] == dim or dim is None) and desc['depth'] == depth and desc['rep'] == rep]
     runs = [r for r in runs if r['last']['train'][0] == 0]
     if len(runs) > 0:
         max_h = min(max_h, min(r['desc']['width'] for r in runs))
