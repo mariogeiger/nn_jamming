@@ -31,6 +31,13 @@ def foo(ar):
     args, command = GLO
 
     max_h = find_h(args.max_factor * p, depth, dim)
+
+    runs = [r() for desc, r in load_dir_functional(args.log_dir) if desc['p'] == p and desc['dim'] == dim and desc['depth'] == depth and desc['rep'] == rep]
+    runs = [r for r in runs if r['last']['train'][0] == 0]
+    if len(runs) > 0:
+        max_h = min(max_h, min(r['desc']['width'] for r in runs))
+        print("runs already done max_h = {}".format(max_h))
+
     hs = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 21, 23, 25, 27, 29, 31, 32, 34, 37, 39, 41, 43, 44, 46, 48, 50, 52, 54, 57, 62, 67, 73, 80, 87, 94, 102, 111, 121, 132, 143, 156, 169, 184, 200, 217, 236, 257, 280, 304, 331, 359, 391, 425, 462, 502, 546, 594, 646, 702, 764, 830, 903]
     hs = [x for x in hs if x <= max_h]
     hs = sorted(hs, reverse=True)
