@@ -49,7 +49,7 @@ def main():
         try:
             GPUs = GPUtil.getGPUs()
         except FileNotFoundError:
-            print("no GPUs")
+            print("grun: no gpus")
             return
 
         maxLoad = 0.5
@@ -66,13 +66,13 @@ def main():
         for gpu in GPUs:
             gpu.nproc = max(len([1 for pid, ids in running if gpu.id in ids]), len([1 for p in procs if p == gpu.id]))
 
-        maxProc = 3
+        maxProc = 30
         GPUs = [gpu for gpu in GPUs if gpu.nproc < maxProc]
 
         if len(GPUs) >= args.n:
             break
 
-        print("Not enough gpu, waiting....")
+        print("grun: waiting for gpus...")
         time.sleep(5)
 
     GPUs = sorted(GPUs, key=lambda gpu: gpu.nproc)
@@ -88,7 +88,12 @@ def main():
 
     f = os.path.join(directory, "{}_{}".format(p.pid, deviceIds))
     open(f, 'w').close()
-    p.wait()
+
+    try:
+        p.wait()
+    except KeyboardInterrupt:
+        print("grun: kill process")
+        p.kill()
     os.remove(f)
 
 
