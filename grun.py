@@ -60,8 +60,14 @@ def main():
         running = [(int(pid), list(map(int, ids.split(',')))) for pid, ids in running]
         running = [(pid, ids) for pid, ids in running if check_pid(pid)]
 
+        p = subprocess.Popen(["nvidia-smi"], stdout=subprocess.PIPE)
+        out = p.stdout.read().decode('UTF-8')
+        procs = [int(x.split()[1]) for x in out.split('Processes:')[-1].split('\n')[3:-2]]
+        for gpu in GPUs:
+            gpu.nproc = max(len([1 for pid, ids in running if gpu.id in ids]), len([1 for p in procs if p == gpu.id]))
+
         maxProc = 3
-        GPUs = [gpu for gpu in GPUs if len([1 for pid, ids in running if gpu.id in ids]) < maxProc]
+        GPUs = [gpu for gpu in GPUs if gpu.nproc < maxProc]
 
         if len(GPUs) >= args.n:
             break
@@ -69,7 +75,7 @@ def main():
         print("Not enough gpu, waiting....")
         time.sleep(5)
 
-    GPUs = sorted(GPUs, key=lambda gpu: len([1 for pid, ids in running if gpu.id in ids]))
+    GPUs = sorted(GPUs, key=lambda gpu: gpu.nproc)
     GPUs = GPUs[:args.n]
 
     # Set CUDA_DEVICE_ORDER so the IDs assigned by CUDA match those from nvidia-smi
