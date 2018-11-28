@@ -57,6 +57,7 @@ def parse():
     parser.add_argument("--min_learning_rate", type=float)
     parser.add_argument("--rlrop_cooldown", type=float)
     parser.add_argument("--momentum", type=float, default=0.0)
+    parser.add_argument("--eps", type=float)
     parser.add_argument("--train_last", type=to_bool, default="False")
 
     parser.add_argument("--batch_size", type=int)
@@ -95,6 +96,8 @@ def parse():
         if args.fdr_epoch is None:
             args.fdr_epoch = 500
     if args.optimizer == "adam_simple":
+        if args.eps is None:
+            args.eps = 1e-8
         if args.max_learning_rate is None:
             args.max_learning_rate = 1e-4
         if args.learning_rate is None:
@@ -251,7 +254,7 @@ def init(args):
     if args.optimizer == "sgd" or args.optimizer == "fdr":
         optimizer = torch.optim.SGD(parameters, lr=learning_rate, momentum=args.momentum, weight_decay=0)
     if args.optimizer == "adam" or args.optimizer == "adam0" or args.optimizer == "adam_simple":
-        optimizer = torch.optim.Adam(parameters, lr=learning_rate)
+        optimizer = torch.optim.Adam(parameters, lr=learning_rate, eps=args.eps)
     if args.optimizer == "fire" or args.optimizer == "fire_simple":
         optimizer = FIRE(parameters, dt_max=learning_rate, a_start=1 - args.momentum)
     if args.optimizer == "adam_rlrop":
