@@ -300,6 +300,11 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
                 "displacement": collections.OrderedDict([(n, (p - init_state[n]).norm().item()) for n, p in model.named_parameters()]),
             }
 
+            data['outnorm'] = {
+                "train": model(trainset[0]).pow(2).mean().item(),
+                "test": model(testset[0]).pow(2).mean().item() if testset is not None else None,
+            }
+
             data['step'] = step
             data['train'] = error_loss_grad(model, *trainset)
             logger.info("id={} P={} d={} L={} h={} step={} nd={:d} nd/P={:.1f}% Loss={:.2g} |Grad|={:.2g} |w-w0|={:.2g} |w|={:.2g}".format(
