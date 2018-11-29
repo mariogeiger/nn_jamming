@@ -62,11 +62,11 @@ def main():
 
         p = subprocess.Popen(["nvidia-smi"], stdout=subprocess.PIPE)
         out = p.stdout.read().decode('UTF-8')
-        procs = [int(x.split()[1]) for x in out.split('Processes:')[-1].split('\n')[3:-2]]
+        procs = [int(x.split()[1]) for x in out.split('Processes:')[-1].split('\n') if "iB" in x]
         for gpu in GPUs:
             gpu.nproc = max(len([1 for pid, ids in running if gpu.id in ids]), len([1 for p in procs if p == gpu.id]))
 
-        maxProc = 30
+        maxProc = 3
         GPUs = [gpu for gpu in GPUs if gpu.nproc < maxProc]
 
         if len(GPUs) >= args.n:
