@@ -27,7 +27,7 @@ def parse():
     parser.add_argument("--architecture", choices={"fc", "cnn"}, required=True)
     parser.add_argument("--dim", type=int, required=True)
     parser.add_argument("--p", type=parse_kmg, required=True)
-    parser.add_argument("--width", type=int, required=True)
+    parser.add_argument("--width", type=float, required=True)
     parser.add_argument("--depth", type=int)
     parser.add_argument("--rep", type=int, default=0)
 
