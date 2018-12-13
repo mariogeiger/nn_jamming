@@ -304,11 +304,12 @@ class FC(nn.Module):
 
         f = d
 
-        for _ in range(depth):
-            lin = nn.Linear(f, h, bias=True)
+        for i in range(depth):
+            n = int(h + 1 - (i + 1) / depth)
+            lin = nn.Linear(f, n, bias=True)
 
             layers += [lin]
-            f = h
+            f = n
 
         lin = nn.Linear(f, n_classes, bias=True)
 
