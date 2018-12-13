@@ -12,7 +12,7 @@ def main():
     parser.add_argument("--log_dir", type=str, required=True)
     parser.add_argument("--n_parallel", type=int, default=1)
     parser.add_argument("--dim", type=int, nargs='+')
-    parser.add_argument("--width", type=int, nargs='+', required=True)
+    parser.add_argument("--width", type=float, nargs='+', required=True)
     parser.add_argument("--depth", type=int, nargs='+')
     parser.add_argument("--p", type=str, nargs='+', required=True)
     parser.add_argument("--rep", type=int, nargs='+', default=[0])
