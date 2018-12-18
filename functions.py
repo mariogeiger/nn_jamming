@@ -384,6 +384,16 @@ class CNN(nn.Module):
             return x
 
 
+class SumModules(torch.nn.Module):
+    def __init__(self, mods, coefs):
+        super().__init__()
+        self.fs = torch.nn.ModuleList(mods)
+        self.cs = coefs
+
+    def forward(self, x):
+        return sum(a * f(x) for f, a in zip(self.fs, self.cs))
+
+
 def expand_basis(basis, vectors, eps=1e-12):
     vectors = iter(vectors)
     assert basis is None or basis.ndimension() == 2
@@ -440,6 +450,16 @@ def n_effective(f, x, n_derive=1):
         if basis.size(0) == ws.size(0):
             return basis.size(0)
         basis = ws
+
+
+def get_outputs(model, data_x, chunk=None):
+    if chunk is None:
+        chunk = len(data_x)
+
+    return torch.cat([
+        model(data_x[i: i + chunk]).flatten()
+        for i in range(0, len(data_x), chunk)
+    ])
 
 
 def get_deltas(model, data_x, data_y, chunk=None):

@@ -42,6 +42,7 @@ def parse():
     parser.add_argument("--compute_activities", type=to_bool, default="False")
     parser.add_argument("--compute_input_gradients", type=to_bool, default="False")
     parser.add_argument("--compute_outputs", type=to_bool, default="False")
+    parser.add_argument("--subtract_init", type=to_bool, default="False")
     parser.add_argument("--save_hessian", type=to_bool, default="False")
     parser.add_argument("--checkpoints", type=int, nargs='+', default=[])
     parser.add_argument("--nd_stop", type=int, default=0)
@@ -246,6 +247,12 @@ def init(args):
         parameters = model.layers[-1].parameters()
     else:
         parameters = model.parameters()
+
+    if args.subtract_init:
+        model0 = copy.deepcopy(model)
+        for p in model0.parameters():
+            p.requires_grad = False
+        model = SumModules([model, model0], [1, -1])
 
     scheduler = None
     learning_rate = min(args.learning_rate * args.width ** args.lr_width_exponent, args.max_learning_rate)
@@ -490,8 +497,8 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
     outputs = None
     if args.compute_outputs:
         outputs = {
-            "train": model(trainset[0]).cpu(),
-            "test": model(testset[0]).cpu() if testset is not None else None,
+            "train": get_outputs(model, trainset[0], 1024).cpu(),
+            "test": get_outputs(model, testset[0], 1024).cpu() if testset is not None else None,
         }
 
     run["last"] = {
