@@ -515,12 +515,13 @@ def compute_h0(model, deltas, out=None):
     '''
     Compute extensive H0
     '''
-    Ntot = sum(p.numel() for p in model.parameters())
+    parameters = [p for p in model.parameters() if p.requires_grad]
+    Ntot = sum(p.numel() for p in parameters)
     if out is None:
         out = deltas.new_zeros(Ntot, Ntot)  # da Delta_i db Delta_i
 
     for delta in deltas:
-        g = gradient(delta, model.parameters(), retain_graph=True)
+        g = gradient(delta, parameters, retain_graph=True)
         out.add_(g.view(-1, 1) * g.view(1, -1))
     return out
 
@@ -530,13 +531,14 @@ def compute_hp(model, deltas, out=None):
     Compute extensive Hp
     '''
     from hessian import hessian
-    return hessian((deltas.detach() * deltas).sum(), model.parameters(), out=out)  # Delta_i da db Delta_i
+    parameters = [p for p in model.parameters() if p.requires_grad]
+    return hessian((deltas.detach() * deltas).sum(), parameters, out=out)  # Delta_i da db Delta_i
 
 
 def compute_hessian(model, data_x, data_y):
     model.eval()
     p = len(data_x)
-    Ntot = sum(p.numel() for p in model.parameters())
+    Ntot = sum(p.numel() for p in model.parameters() if p.requires_grad)
     H = data_x.new_zeros(Ntot, Ntot)
 
     mist_x, mist_y = get_mistakes(model, data_x, data_y, 1024)
@@ -593,7 +595,7 @@ def error_loss_grad(model, data_x, data_y):
         l.backward()
         loss += l.item()
 
-    grad_norm = sum(p.grad.pow(2).sum() for p in model.parameters()).pow(0.5).item()
+    grad_norm = sum(p.grad.pow(2).sum() for p in model.parameters() if p.requires_grad).pow(0.5).item()
     return cons, loss, grad_norm, erro
 
 

@@ -249,10 +249,15 @@ def init(args):
         parameters = model.parameters()
 
     if args.subtract_init:
-        model0 = copy.deepcopy(model)
-        for p in model0.parameters():
+        f = model
+        f0 = copy.deepcopy(f)
+        for p in f0.parameters():
             p.requires_grad = False
-        model = SumModules([model, model0], [1, -1])
+        model = SumModules([f, f0], [1, -1])
+        model.kappa = f.kappa
+        model.preactivations = f.preactivations
+        model.act = f.act
+        model.N = f.N
 
     scheduler = None
     learning_rate = min(args.learning_rate * args.width ** args.lr_width_exponent, args.max_learning_rate)
