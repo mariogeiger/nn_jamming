@@ -313,8 +313,8 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
             }
 
             data['outnorm'] = {
-                "train": model(trainset[0]).pow(2).mean().item(),
-                "test": model(testset[0]).pow(2).mean().item() if testset is not None else None,
+                "train": get_outputs(model, trainset[0], 1024).pow(2).mean().item(),
+                "test": get_outputs(model, testset[0], 1024).pow(2).mean().item() if testset is not None else None,
             }
 
             data['step'] = step
