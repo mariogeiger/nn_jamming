@@ -341,49 +341,6 @@ class FC(nn.Module):
             return x
 
 
-class CNN(nn.Module):
-
-    def __init__(self, d, h, act, kappa=1, n_classes=1):
-        super().__init__()
-
-        self.layers = nn.ModuleList([
-            nn.Conv2d(d, h, 3, stride=3),
-            nn.Conv2d(h, h, 3, stride=2),
-            nn.Conv2d(h, n_classes, 3)
-        ])
-
-        for name, p in self.layers.named_parameters():
-            if 'weight' in name:
-                orthogonal_(p)
-            if 'bias' in name:
-                nn.init.zeros_(p)
-
-        self.act = act
-        self.n_classes = n_classes
-        self.kappa = kappa
-
-        self.preactivations = None
-        self.N = sum(p.numel() for p in self.parameters())
-
-    def forward(self, x):
-        assert self.preactivations is None or self.preactivations == []
-
-        for layer in self.layers[:-1]:
-            x = layer(x)
-            if self.preactivations is not None:
-                self.preactivations.append(x)
-            x = self.act(x)
-
-        x = self.layers[-1](x)
-
-        x = x.flatten(2).mean(2)
-
-        if self.n_classes == 1:
-            return x.view(-1)
-        else:
-            return x
-
-
 class SumModules(torch.nn.Module):
     def __init__(self, mods, coefs):
         super().__init__()

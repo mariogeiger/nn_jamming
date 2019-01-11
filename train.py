@@ -24,11 +24,10 @@ def parse():
     parser.add_argument("--skip", type=to_bool, default="True")
 
     parser.add_argument("--dataset", required=True)
-    parser.add_argument("--architecture", choices={"fc", "cnn"}, required=True)
     parser.add_argument("--dim", type=int, required=True)
     parser.add_argument("--p", type=parse_kmg, required=True)
     parser.add_argument("--width", type=float, required=True)
-    parser.add_argument("--depth", type=int)
+    parser.add_argument("--depth", type=int, required=True)
     parser.add_argument("--rep", type=int, default=0)
 
     parser.add_argument("--init", choices={"orth", "normal"}, default="orth", required=True)
@@ -73,11 +72,6 @@ def parse():
 
     if args.device is None:
         args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    if args.architecture == "fc":
-        assert args.depth is not None
-    if args.architecture == "cnn":
-        assert args.depth is None
 
     if args.optimizer == "sgd":
         if args.batch_size is None:
@@ -217,27 +211,23 @@ def init(args):
 
     torch.manual_seed(init_seed)
     activation = F.relu if args.activation == "relu" else torch.tanh
-    if args.architecture == "fc":
-        trainset = (trainset[0].flatten(1), trainset[1])
-        if testset is not None:
-            testset = (testset[0].flatten(1), testset[1])
-        model = FC(args.dim, args.width, args.depth, activation, kappa=args.kappa, n_classes=n_classes)
 
-        for n, p in model.named_parameters():
-            if 'bias' in n:
-                nn.init.zeros_(p)
-            if 'weight' in n:
-                if args.init == "orth":
-                    orthogonal_(p, gain=args.init_gain)
-                elif args.init == "normal":
-                    nn.init.normal_(p, std=args.init_gain / p.size(1) ** 0.5)
-                else:
-                    raise ValueError()
+    trainset = (trainset[0].flatten(1), trainset[1])
+    if testset is not None:
+        testset = (testset[0].flatten(1), testset[1])
+    model = FC(args.dim, args.width, args.depth, activation, kappa=args.kappa, n_classes=n_classes)
 
-    if args.architecture == "cnn":
-        assert trainset[0].ndimension() == 4
-        assert testset[0].ndimension() == 4
-        model = CNN(args.dim, args.width, activation, kappa=args.kappa, n_classes=n_classes)
+    for n, p in model.named_parameters():
+        if 'bias' in n:
+            nn.init.zeros_(p)
+        if 'weight' in n:
+            if args.init == "orth":
+                orthogonal_(p, gain=args.init_gain)
+            elif args.init == "normal":
+                nn.init.normal_(p, std=args.init_gain / p.size(1) ** 0.5)
+            else:
+                raise ValueError()
+
     model.to(device)
     model.type(dtype)
 
