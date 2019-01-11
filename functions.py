@@ -455,16 +455,22 @@ def get_mistakes(model, data_x, data_y, chunk=None):
     return data_x[mask], data_y[mask]
 
 
-def get_activities(model, data_x):
+def get_activities(model, data_x, chunk=None):
+    if chunk is None:
+        chunk = len(data_x)
+
     model.eval()
 
     with torch.no_grad():
-        model.preactivations = []
-        model(data_x)
+        activities = []
+        for i in range(0, len(data_x), chunk):
+            model.preactivations = []
+            model(data_x[i: i + chunk])
 
-        activities = [model.act(a) for a in model.preactivations]
-        model.preactivations = None  # free memory
+            activities.append([model.act(a) for a in model.preactivations])
+            model.preactivations = None  # free memory
 
+    activities = [torch.cat(x) for x in zip(*activities)]
     return activities
 
 
