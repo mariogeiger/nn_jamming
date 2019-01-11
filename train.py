@@ -33,7 +33,7 @@ def parse():
     parser.add_argument("--init", choices={"orth", "normal"}, default="orth", required=True)
     parser.add_argument("--init_gain", type=float, default=1)
 
-    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_rlrop", "adam_simple", "fdr"}, required=True)
+    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_simple"}, required=True)
     parser.add_argument("--lr_width_exponent", type=float, default=0)
     parser.add_argument("--n_steps_max", type=parse_kmg, required=True)
     parser.add_argument("--compute_hessian", type=to_bool, default="False")
@@ -52,7 +52,6 @@ def parse():
     parser.add_argument("--max_learning_rate", type=float)
     parser.add_argument("--learning_rate", type=float)
     parser.add_argument("--n_steps_lr_decay", type=parse_kmg)
-    parser.add_argument("--fdr_epoch", type=int)
     parser.add_argument("--lr_decay_factor", type=float)
     parser.add_argument("--min_learning_rate", type=float)
     parser.add_argument("--rlrop_cooldown", type=float)
@@ -81,15 +80,6 @@ def parse():
             args.batch_size = args.p
         if args.learning_rate is None:
             args.learning_rate = 1
-    if args.optimizer == "fdr":
-        if args.learning_rate is None:
-            args.learning_rate = 1e-2
-        if args.batch_size is None:
-            args.batch_size = args.p
-        if args.lr_decay_factor is None:
-            args.lr_decay_factor = 1 / 0.9
-        if args.fdr_epoch is None:
-            args.fdr_epoch = 500
     if args.optimizer == "adam_simple":
         if args.eps is None:
             args.eps = 1e-8
@@ -99,15 +89,6 @@ def parse():
             args.learning_rate = 1e-4
         if args.batch_size is None:
             args.batch_size = args.p
-    if args.optimizer == "adam_rlrop":
-        if args.learning_rate is None:
-            args.learning_rate = 1e-3
-        if args.min_learning_rate is None:
-            args.min_learning_rate = 1e-7
-        if args.batch_size is None:
-            args.batch_size = args.p
-        if args.rlrop_cooldown is None:
-            args.rlrop_cooldown = 10
     if args.optimizer == "adam0":
         if args.learning_rate is None:
             args.learning_rate = 1e-4
@@ -253,16 +234,12 @@ def init(args):
     learning_rate = min(args.learning_rate * args.width ** args.lr_width_exponent, args.max_learning_rate)
     logger.info("learning rate = {}".format(learning_rate))
 
-    if args.optimizer == "sgd" or args.optimizer == "fdr":
+    if args.optimizer == "sgd":
         optimizer = torch.optim.SGD(parameters, lr=learning_rate, momentum=args.momentum, weight_decay=0)
     if args.optimizer == "adam" or args.optimizer == "adam0" or args.optimizer == "adam_simple":
         optimizer = torch.optim.Adam(parameters, lr=learning_rate, eps=args.eps)
     if args.optimizer == "fire" or args.optimizer == "fire_simple":
         optimizer = FIRE(parameters, dt_max=learning_rate, a_start=1 - args.momentum)
-    if args.optimizer == "adam_rlrop":
-        assert args.lr_width_exponent == 0, "code has to be updated"
-        optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=0, verbose=True, threshold=-1, threshold_mode="rel", cooldown=args.rlrop_cooldown, min_lr=args.min_learning_rate)
 
     return model, trainset, testset, logger, optimizer, scheduler, device, desc, init_seed, data_seed, run_id
 
@@ -279,9 +256,6 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
     bins = np.logspace(-9, 4, 130)
     bins = np.concatenate([[-1], bins])
-
-    fluctuation = 0
-    dissipation = 0
 
     init_state = copy.deepcopy(model.state_dict())
 
@@ -417,43 +391,6 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
         time_1 = time_logging.end("load data", time_1)
 
         make_a_step(model, optimizer, *trainset, batch_size)
-
-        if args.optimizer == "fdr":
-            fluctuation += sum(torch.dot(p.view(-1), p.grad.view(-1)) for p in model.parameters()).item()
-
-            assert len(optimizer.param_groups) == 1
-            group = optimizer.param_groups[0]
-            weight_decay = group['weight_decay']
-            momentum = group['momentum']
-            dampening = group['dampening']
-            nesterov = group['nesterov']
-            lr = group['lr']
-
-            assert weight_decay == 0
-            assert nesterov == False
-
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-
-                if momentum != 0:
-                    param_state = optimizer.state[p]
-                    v = param_state['momentum_buffer']
-                    dissipation += 0.5 * (1 + momentum) / (1 - dampening) * lr * v.norm() ** 2
-                else:
-                    v = p.grad
-                    dissipation += 0.5 * lr * v.norm() ** 2
-
-            if step > 0 and step % args.fdr_epoch == 0:
-                fluctuation /= args.fdr_epoch
-                dissipation /= args.fdr_epoch
-                logger.info("({}|{}) fluctuation = {}, dissipation = {}".format(run_id, desc['p'], fluctuation, dissipation))
-                if abs(fluctuation / dissipation - 1) < 0.01:
-                    group['lr'] = lr / args.lr_decay_factor
-                    logger.info("({}|{}) learning rate set to {}".format(run_id, desc['p'], group['lr']))
-
-                fluctuation = 0
-                dissipation = 0
 
         time_1 = time_logging.end("make a step", time_1)
 
