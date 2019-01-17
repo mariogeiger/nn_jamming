@@ -9,7 +9,6 @@ import copy
 import numpy as np
 import time_logging
 from functions import *
-from fire import FIRE
 import collections
 
 
@@ -33,7 +32,7 @@ def parse():
     parser.add_argument("--init", choices={"orth", "normal"}, default="orth", required=True)
     parser.add_argument("--init_gain", type=float, default=1)
 
-    parser.add_argument("--optimizer", choices={"sgd", "adam", "adam0", "fire", "fire_simple", "adam_simple"}, required=True)
+    parser.add_argument("--optimizer", required=True)
     parser.add_argument("--lr_width_exponent", type=float, default=0)
     parser.add_argument("--n_steps_max", type=parse_kmg, required=True)
     parser.add_argument("--compute_hessian", type=to_bool, default="False")
@@ -51,10 +50,6 @@ def parse():
 
     parser.add_argument("--max_learning_rate", type=float)
     parser.add_argument("--learning_rate", type=float)
-    parser.add_argument("--n_steps_lr_decay", type=parse_kmg)
-    parser.add_argument("--lr_decay_factor", type=float)
-    parser.add_argument("--min_learning_rate", type=float)
-    parser.add_argument("--rlrop_cooldown", type=float)
     parser.add_argument("--momentum", type=float, default=0.0)
     parser.add_argument("--eps", type=float)
     parser.add_argument("--train_last", type=to_bool, default="False")
@@ -75,56 +70,13 @@ def parse():
     if args.optimizer == "sgd":
         if args.batch_size is None:
             args.batch_size = args.p
-    if args.optimizer == "sgd_ntk":
-        if args.batch_size is None:
-            args.batch_size = args.p
-        if args.learning_rate is None:
-            args.learning_rate = 1
-    if args.optimizer == "adam_simple":
+    if args.optimizer == "adam":
         if args.eps is None:
             args.eps = 1e-8
         if args.max_learning_rate is None:
             args.max_learning_rate = 1e-4
         if args.learning_rate is None:
             args.learning_rate = 1e-4
-        if args.batch_size is None:
-            args.batch_size = args.p
-    if args.optimizer == "adam0":
-        if args.learning_rate is None:
-            args.learning_rate = 1e-4
-        if args.n_steps_lr_decay is None:
-            args.n_steps_lr_decay = 2.5e5
-        if args.lr_decay_factor is None:
-            args.lr_decay_factor = 10
-        if args.min_learning_rate is None:
-            args.min_learning_rate = 1e-7
-        if args.batch_size is None:
-            args.batch_size = args.p
-    if args.optimizer == "adam":
-        if args.learning_rate is None:
-            args.learning_rate = 1e-4
-        if args.n_steps_lr_decay is None:
-            args.n_steps_lr_decay = 1e5
-        if args.lr_decay_factor is None:
-            args.lr_decay_factor = 2
-        if args.min_learning_rate is None:
-            args.min_learning_rate = 1e-6
-        if args.batch_size is None:
-            args.batch_size = args.p
-    if args.optimizer == "fire":
-        if args.learning_rate is None:
-            args.learning_rate = 1e-1
-        if args.n_steps_lr_decay is None:
-            args.n_steps_lr_decay = 1e5
-        if args.lr_decay_factor is None:
-            args.lr_decay_factor = 2
-        if args.min_learning_rate is None:
-            args.min_learning_rate = 1e-3
-        if args.batch_size is None:
-            args.batch_size = args.p
-    if args.optimizer == "fire_simple":
-        if args.learning_rate is None:
-            args.learning_rate = 1e-2
         if args.batch_size is None:
             args.batch_size = args.p
 
@@ -236,9 +188,10 @@ def init(args):
 
     if args.optimizer == "sgd":
         optimizer = torch.optim.SGD(parameters, lr=learning_rate, momentum=args.momentum, weight_decay=0)
-    if args.optimizer == "adam" or args.optimizer == "adam0" or args.optimizer == "adam_simple":
+    if args.optimizer == "adam":
         optimizer = torch.optim.Adam(parameters, lr=learning_rate, eps=args.eps)
-    if args.optimizer == "fire" or args.optimizer == "fire_simple":
+    if args.optimizer == "fire":
+        from fire import FIRE
         optimizer = FIRE(parameters, dt_max=learning_rate, a_start=1 - args.momentum)
 
     return model, trainset, testset, logger, optimizer, scheduler, device, desc, init_seed, data_seed, run_id
@@ -308,9 +261,6 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
                     "binary": [((a > 0) != (a0 > 0)).long().sum().item() for a, a0 in zip(acti, init_act)],
                 }
 
-            if args.optimizer == "adam_rlrop":
-                scheduler.step(data['train'][1])
-
             data['batch_size'] = batch_size
             data['optimizer'] = {
                 'state': simplify(optimizer.state),
@@ -373,16 +323,6 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
                 "hessian": hessian,
             })
             model.to(device)
-
-        if args.n_steps_lr_decay and step > 0 and step % args.n_steps_lr_decay == 0:
-            for pg in optimizer.param_groups:
-                assert args.lr_width_exponent == 0, "code has to be updated"
-                if isinstance(optimizer, FIRE):
-                    pg['dt_max'] = max(args.min_learning_rate, pg['dt_max'] / args.lr_decay_factor)
-                    logger.info("({}|{}) dt_max set to {}".format(run_id, desc['p'], pg['dt_max']))
-                else:
-                    pg['lr'] = max(args.min_learning_rate, pg['lr'] / args.lr_decay_factor)
-                    logger.info("({}|{}) learning rate set to {}".format(run_id, desc['p'], pg['lr']))
 
         if args.n_steps_bs_grow and step > 0 and step % args.n_steps_bs_grow == 0:
             batch_size = min(args.p, int(batch_size * args.bs_grow_factor))
