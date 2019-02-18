@@ -297,7 +297,7 @@ def orthogonal_(tensor, gain=1):
 
 class FC(nn.Module):
 
-    def __init__(self, d, h, depth, act=F.relu, kappa=1, n_classes=1):
+    def __init__(self, d, h, depth, act=F.relu, kappa=1, n_classes=1, dropout=False):
         super().__init__()
 
         layers = nn.ModuleList()
@@ -324,15 +324,18 @@ class FC(nn.Module):
         self.n_classes = n_classes
         self.preactivations = None
         self.N = sum(layer.weight.numel() for layer in self.layers)
+        self.dropout = dropout 
 
     def forward(self, x):
         assert self.preactivations is None or self.preactivations == []
-
+        print(self.layers)
         for layer in self.layers[:-1]:
             x = layer(x)
             if self.preactivations is not None:
                 self.preactivations.append(x)
             x = self.act(x)
+            if self.dropout:
+                x = F.dropout(x, training=self.training)
 
         x = self.layers[-1](x)
         if self.n_classes == 1:
@@ -567,7 +570,7 @@ def make_a_step(model, optimizer, data_x, data_y, batch_size, chunk=None):
     data_x [batch, k] (?, dim)
     data_y [batch, class] (?,)
     '''
-    model.train()
+    model.eval() # to get the batch
 
     if chunk is None:
         chunk = len(data_x)
@@ -595,6 +598,7 @@ def make_a_step(model, optimizer, data_x, data_y, batch_size, chunk=None):
         if mist_x.size(0) == 0:
             return 0
 
+    model.train() # to take a step in training
     deltas = get_deltas(model, mist_x, mist_y)
     loss = 0.5 * deltas.pow(2).sum() / batch_size
 
@@ -602,6 +606,7 @@ def make_a_step(model, optimizer, data_x, data_y, batch_size, chunk=None):
     loss.backward()
     optimizer.step()
 
+    model.eval() # put it back to eval mode for later computation
     return loss.item()
 
 
@@ -718,7 +723,7 @@ def load_run(run):
     n_classes = 1 if y.ndimension() == 1 else y.size(1)
 
     act = F.relu if run['args'].activation == "relu" else torch.tanh
-    model_init = FC(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], act, kappa=run['desc']['kappa'], n_classes=n_classes)
+    model_init = FC(run['desc']['dim'], run['desc']['width'], run['desc']['depth'], act, kappa=run['desc']['kappa'], n_classes=n_classes, dropout=run['desc']['dropout'])
     model_init.type(dtype)
     model_init.load_state_dict(run["init"]['state'])
 

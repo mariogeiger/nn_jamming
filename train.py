@@ -53,6 +53,8 @@ def parse():
     parser.add_argument("--momentum", type=float, default=0.0)
     parser.add_argument("--eps", type=float)
     parser.add_argument("--train_last", type=to_bool, default="False")
+    
+    parser.add_argument("--dropout", type=to_bool, default="False")
 
     parser.add_argument("--batch_size", type=int)
     parser.add_argument("--n_steps_bs_grow", type=int)
@@ -63,6 +65,7 @@ def parse():
     parser.add_argument("--activation", choices={"relu", "tanh"}, default="relu")
 
     args = parser.parse_args()
+
 
     if args.device is None:
         args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -148,7 +151,7 @@ def init(args):
     trainset = (trainset[0].flatten(1), trainset[1])
     if testset is not None:
         testset = (testset[0].flatten(1), testset[1])
-    model = FC(args.dim, args.width, args.depth, activation, kappa=args.kappa, n_classes=n_classes)
+    model = FC(args.dim, args.width, args.depth, activation, kappa=args.kappa, n_classes=n_classes, dropout=args.dropout)
 
     for n, p in model.named_parameters():
         if 'bias' in n:
@@ -217,6 +220,7 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
     step = 0
     while True:
+        print(step, '-----------')
         if step > args.n_steps_max:
             break
 
