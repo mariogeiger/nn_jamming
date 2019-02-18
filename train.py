@@ -220,7 +220,6 @@ def train(args, model, trainset, testset, logger, optimizer, scheduler, device, 
 
     step = 0
     while True:
-        print(step, '-----------')
         if step > args.n_steps_max:
             break
 
