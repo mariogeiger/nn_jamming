@@ -328,7 +328,6 @@ class FC(nn.Module):
 
     def forward(self, x):
         assert self.preactivations is None or self.preactivations == []
-        print(self.layers)
         for layer in self.layers[:-1]:
             x = layer(x)
             if self.preactivations is not None:
