@@ -2,13 +2,15 @@
 
 Code used in https://arxiv.org/abs/1809.09349
 
+Depends on https://github.com/mariogeiger/hessian
+
 ### Fully-connected network trained with a quadratic hinge loss
 
 The main file is `train.py`
 
 Usage example:
 ```bash
-python train.py --log_dir R40d40h5L --dataset random --dim 40 --width 40 --depth 5 --p 24000 --optimizer adam0
+python train.py --log_dir R40d40h5L --dataset random --dim 40 --width 40 --depth 5 --p 24000 --optimizer adam --init orth --n_steps_max 1M --learning_rate 0.1 --max_learning_rate 0.1
 ```
 
 It will train a neural network of 5 hidden layers of 40 units on a random dataset in dimension 40.
